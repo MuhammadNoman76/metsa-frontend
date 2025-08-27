@@ -102,9 +102,8 @@ const ThemedSelect = ({
             {selected ? selected.label : placeholder}
           </span>
           <ChevronDown
-            className={`w-4 h-4 text-gray-400 transition-transform ${
-              open ? "rotate-180" : ""
-            }`}
+            className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""
+              }`}
           />
         </button>
 
@@ -356,8 +355,8 @@ export default function DocumentsPage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (e: any) {
-      const status = e?.response?.status;
+    } catch (e: unknown) {
+      const status = (e as { response?: { status?: number } })?.response?.status;
       if (status === 403)
         toast.error("Download not allowed for this document.");
       else if (status === 404) toast.error("Document not found.");
@@ -402,8 +401,8 @@ export default function DocumentsPage() {
     v === "public"
       ? "bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800"
       : v === "private"
-      ? "bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800"
-      : "bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800";
+        ? "bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800"
+        : "bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800";
 
   const getCategoryColor = (c: string) => {
     const map: Record<string, string> = {
@@ -681,11 +680,10 @@ export default function DocumentsPage() {
           onClick={() => setView("grid")}
           aria-pressed={view === "grid"}
           aria-label="Grid view"
-          className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors ${
-            view === "grid"
+          className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors ${view === "grid"
               ? "bg-blue-600 text-white"
               : "text-gray-600 hover:text-gray-900 hover:bg-white dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800"
-          }`}
+            }`}
         >
           <Grid className="w-4 h-4" />
           <VisuallyHidden>Grid</VisuallyHidden>
@@ -694,11 +692,10 @@ export default function DocumentsPage() {
           onClick={() => setView("list")}
           aria-pressed={view === "list"}
           aria-label="List view"
-          className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors ${
-            view === "list"
+          className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors ${view === "list"
               ? "bg-blue-600 text-white"
               : "text-gray-600 hover:text-gray-900 hover:bg-white dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800"
-          }`}
+            }`}
         >
           <List className="w-4 h-4" />
           <VisuallyHidden>List</VisuallyHidden>
@@ -761,8 +758,8 @@ export default function DocumentsPage() {
                 <div className="text-gray-600 dark:text-gray-400">
                   <span className="font-semibold text-gray-900 dark:text-gray-100">
                     {filters.search ||
-                    filters.category !== "all" ||
-                    filters.visibility !== "all"
+                      filters.category !== "all" ||
+                      filters.visibility !== "all"
                       ? "Filtered"
                       : "All"}
                   </span>
@@ -858,8 +855,8 @@ export default function DocumentsPage() {
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
               {filters.search ||
-              filters.category !== "all" ||
-              filters.visibility !== "all"
+                filters.category !== "all" ||
+                filters.visibility !== "all"
                 ? "Try adjusting your search or filters."
                 : "Get started by uploading your first document."}
             </p>

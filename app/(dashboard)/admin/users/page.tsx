@@ -15,8 +15,6 @@ import {
   Save,
   AlertCircle,
   Users,
-  Mail,
-  Calendar,
   Eye,
   EyeOff,
   ChevronDown,

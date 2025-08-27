@@ -28,6 +28,19 @@ import { useToast } from "@/contexts/ToastContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { UserRole } from "@/types";
 
+// Define proper type for signup data
+interface SignupData {
+  email: string;
+  username: string;
+  password: string;
+  role: UserRole;
+  customer_info?: {
+    company: string;
+    phone: string;
+    address: string;
+  };
+}
+
 export default function SignupPage() {
   const router = useRouter();
   const toast = useToast();
@@ -104,7 +117,7 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      const signupData: any = {
+      const signupData: SignupData = {
         email: formData.email,
         username: formData.username,
         password: formData.password,
@@ -586,7 +599,7 @@ export default function SignupPage() {
                     </p>
                     <p className="text-xs leading-relaxed">
                       After signup, your account will need to be approved by an
-                      administrator before you can access the system. You'll
+                      administrator before you can access the system. You{"'"}ll
                       receive an email notification once approved.
                     </p>
                   </div>

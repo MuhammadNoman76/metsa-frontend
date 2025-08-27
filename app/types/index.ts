@@ -30,7 +30,7 @@ export interface CustomerInfo {
   company?: string;
   phone?: string;
   address?: string;
-  [key: string]: any;
+  [key: string]: string | undefined;
 }
 
 export interface User {
