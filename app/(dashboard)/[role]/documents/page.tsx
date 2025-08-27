@@ -681,8 +681,8 @@ export default function DocumentsPage() {
           aria-pressed={view === "grid"}
           aria-label="Grid view"
           className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors ${view === "grid"
-              ? "bg-blue-600 text-white"
-              : "text-gray-600 hover:text-gray-900 hover:bg-white dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800"
+            ? "bg-blue-600 text-white"
+            : "text-gray-600 hover:text-gray-900 hover:bg-white dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800"
             }`}
         >
           <Grid className="w-4 h-4" />
@@ -693,8 +693,8 @@ export default function DocumentsPage() {
           aria-pressed={view === "list"}
           aria-label="List view"
           className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors ${view === "list"
-              ? "bg-blue-600 text-white"
-              : "text-gray-600 hover:text-gray-900 hover:bg-white dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800"
+            ? "bg-blue-600 text-white"
+            : "text-gray-600 hover:text-gray-900 hover:bg-white dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800"
             }`}
         >
           <List className="w-4 h-4" />
