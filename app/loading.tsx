@@ -1,5 +1,5 @@
-import LoadingPage from "@/components/LoadingPage";
+import SimpleLoading from "@/components/SimpleLoading";
 
 export default function RootLoading() {
-  return <LoadingPage variant="root" />;
+  return <SimpleLoading message="Loading..." />;
 }

@@ -1,5 +1,5 @@
-import LoadingPage from "@/components/LoadingPage";
+import SimpleLoading from "@/components/SimpleLoading";
 
 export default function DashboardLoading() {
-  return <LoadingPage variant="dashboard" showProgressItems={true} />;
+  return <SimpleLoading message="Loading..." />;
 }

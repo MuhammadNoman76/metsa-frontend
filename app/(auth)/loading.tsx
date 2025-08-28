@@ -1,5 +1,5 @@
-import LoadingPage from "@/components/LoadingPage";
+import SimpleLoading from "@/components/SimpleLoading";
 
 export default function AuthLoading() {
-  return <LoadingPage variant="auth" />;
+  return <SimpleLoading message="Loading..." />;
 }

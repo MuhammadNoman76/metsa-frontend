@@ -26,6 +26,7 @@ import api from "@/lib/api";
 import { Document, DocumentCategory, DocumentVisibility, User } from "@/types";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useToast } from "@/contexts/ToastContext";
+import SimpleLoading from "@/components/SimpleLoading";
 
 // Modern Select Component
 const ModernSelect = ({
@@ -342,26 +343,7 @@ export default function EditDocumentPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
-        <div className="text-center space-y-6 max-w-md">
-          <div className="relative w-20 h-20 mx-auto">
-            <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-800 rounded-full"></div>
-            <div className="absolute inset-0 border-4 border-blue-600 dark:border-blue-400 rounded-full border-t-transparent animate-spin"></div>
-          </div>
-          <div className="space-y-3">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Loading Document
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-              Please wait while we retrieve your document details...
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <SimpleLoading message="Loading..." fullScreen />;
 
   if (!document) {
     return (

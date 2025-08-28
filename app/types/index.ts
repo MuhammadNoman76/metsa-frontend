@@ -42,6 +42,7 @@ export interface User {
   customer_info?: CustomerInfo;
   is_active: boolean;
   is_verified: boolean;
+  is_super_admin?: boolean; // ADD THIS
   approval_status?: ApprovalStatus;
   approved_by?: string | null;
   approved_at?: string | null;

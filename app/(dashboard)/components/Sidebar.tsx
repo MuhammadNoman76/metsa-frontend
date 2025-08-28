@@ -32,6 +32,7 @@ export default function Sidebar() {
     const stored = localStorage.getItem("sidebar:collapsed");
     if (stored === "1") setIsCollapsed(true);
   }, []);
+
   useEffect(() => {
     localStorage.setItem("sidebar:collapsed", isCollapsed ? "1" : "0");
   }, [isCollapsed]);
@@ -49,7 +50,7 @@ export default function Sidebar() {
     return () => document.removeEventListener("keydown", handleEscape);
   }, []);
 
-  // Close mobile drawer on large screens
+  // Close mobile dropdown on large screens
   useEffect(() => {
     const onResize = () => {
       if (window.innerWidth >= 1024) setIsMobileOpen(false);
@@ -57,6 +58,18 @@ export default function Sidebar() {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileOpen]);
 
   if (!user) return null;
 
@@ -108,119 +121,180 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile hamburger button (hidden while drawer is open) */}
-      {!isMobileOpen && (
-        <button
-          type="button"
-          onClick={toggleMobile}
-          aria-label="Open menu"
-          aria-expanded={false}
-          className={cn(
-            "lg:hidden fixed top-3 left-3 z-[60] inline-flex items-center justify-center rounded-lg",
-            "bg-gray-900 text-white shadow-lg hover:bg-gray-800",
-            "p-2 transition-colors duration-200"
-          )}
-        >
-          <Menu size={22} />
-        </button>
-      )}
+      {/* Mobile Header Bar - Always visible on mobile */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-[100] bg-gradient-to-r from-gray-950 to-gray-900 shadow-lg">
+        <div className="flex items-center justify-between px-4 py-3 h-[60px]">
+          {/* Logo and Brand */}
+          <Link
+            href={`/${role}/documents`}
+            className="flex items-center gap-2"
+            aria-label="Go to Documents"
+          >
+            <div className="flex items-center justify-center rounded-md bg-white/5 p-1.5">
+              <Image
+                src="/metsa_logo.png"
+                alt="Metsä"
+                width={32}
+                height={32}
+                priority
+                className="h-7 w-auto object-contain"
+              />
+            </div>
+            <span className="text-white text-sm font-semibold tracking-wide">
+              Dashboard
+            </span>
+          </Link>
 
-      {/* Mobile overlay */}
-      {isMobileOpen && (
-        <button
-          aria-label="Close menu overlay"
-          onClick={() => setIsMobileOpen(false)}
-          className="lg:hidden fixed inset-0 z-40 bg-black/50"
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          "fixed lg:relative inset-y-0 left-0 z-50 flex flex-col",
-          "bg-gradient-to-b from-gray-950 to-gray-900",
-          "text-white shadow-2xl transition-transform duration-300 ease-out",
-          // Desktop widths
-          isCollapsed ? "lg:w-16" : "lg:w-64",
-          // Mobile drawer behavior
-          isMobileOpen
-            ? "translate-x-0 w-72"
-            : "-translate-x-full lg:translate-x-0",
-          // Prevent click-through issues on mobile when closed
-          isMobileOpen
-            ? "pointer-events-auto"
-            : "pointer-events-none lg:pointer-events-auto"
-        )}
-        style={{ willChange: "transform" }}
-      >
-        {/* Header with logo and controls */}
-        <div
-          className={cn(
-            "flex items-center justify-between",
-            "px-3 sm:px-4 py-3 border-b border-white/10",
-            "h-[60px]"
-          )}
-        >
-          {/* Hide logo entirely when collapsed */}
-          {!isCollapsed ? (
-            <Link
-              href={`/${role}/documents`}
-              onClick={handleLinkClick}
-              className={cn(
-                "flex items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
-                "gap-2"
-              )}
-              aria-label="Go to Documents"
-            >
-              <div
-                className={cn(
-                  "flex items-center justify-center",
-                  "rounded-md bg-white/5 p-1.5"
-                )}
-              >
-                <Image
-                  src="/metsa_logo.png"
-                  alt="Metsä"
-                  width={32}
-                  height={32}
-                  priority
-                  className="h-7 w-auto object-contain"
-                />
-              </div>
-              <span className="text-sm font-semibold tracking-wide">
-                Dashboard
-              </span>
-            </Link>
-          ) : (
-            <div aria-hidden className="w-6 h-6" />
-          )}
-
-          {/* Mobile close (only visible when drawer is open on mobile) */}
-          {isMobileOpen && (
-            <button
-              type="button"
-              onClick={toggleMobile}
-              aria-label="Close menu"
-              className="lg:hidden p-2 rounded-md hover:bg-white/10 transition-colors"
-            >
-              <X size={18} />
-            </button>
-          )}
-
-          {/* Desktop collapse */}
+          {/* Mobile Menu Toggle Button */}
           <button
             type="button"
-            onClick={toggleCollapse}
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-pressed={isCollapsed}
-            className="hidden lg:inline-flex p-2 rounded-md hover:bg-white/10 transition-colors"
+            onClick={toggleMobile}
+            aria-label={isMobileOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isMobileOpen}
+            className="inline-flex items-center justify-center rounded-lg bg-white/10 text-white p-2 hover:bg-white/20 transition-colors"
           >
-            <Menu size={18} />
+            {isMobileOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>
+      </header>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-2 sm:px-3 py-3 space-y-1 overflow-y-auto">
+      {/* Mobile Dropdown Overlay and Menu */}
+      {isMobileOpen && (
+        <>
+          {/* Overlay */}
+          <div
+            className="lg:hidden fixed inset-0 bg-black/50 z-[90]"
+            onClick={() => setIsMobileOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Dropdown Menu */}
+          <nav className="lg:hidden fixed top-[60px] left-0 right-0 bottom-0 z-[95] bg-gray-900 overflow-y-auto">
+            <div className="px-4 py-4 space-y-1">
+              {filteredNavigation.map((item) => {
+                const Icon = item.icon;
+                const active = isActivePath(item.href);
+
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={handleLinkClick}
+                    className={cn(
+                      "flex items-center rounded-lg px-3 py-3 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-md"
+                        : "text-gray-300 hover:text-white hover:bg-white/10"
+                    )}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <Icon className="h-5 w-5 mr-3 shrink-0" />
+                    <span>{item.name}</span>
+                    {active && (
+                      <span className="ml-auto inline-block h-2 w-2 rounded-full bg-white/90" />
+                    )}
+                  </Link>
+                );
+              })}
+
+              {/* User Info Section */}
+              <div className="border-t border-white/10 mt-4 pt-4">
+                <div className="flex items-center rounded-lg bg-white/5 px-3 py-3 mb-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-r from-emerald-600 to-emerald-500 text-white text-sm font-bold shrink-0">
+                    {user.email?.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="ml-3 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">
+                      {user.email}
+                    </p>
+                    <p className="text-xs text-gray-400 capitalize">
+                      {String(user.role)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Logout Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    logout();
+                    setIsMobileOpen(false);
+                  }}
+                  className="flex w-full items-center rounded-lg px-3 py-3 text-sm font-medium text-gray-300 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                >
+                  <LogOut className="h-5 w-5 mr-3 shrink-0" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            </div>
+          </nav>
+        </>
+      )}
+
+      {/* Desktop Sidebar - Hidden on mobile, visible on lg+ */}
+      <aside
+        className={cn(
+          "hidden lg:flex fixed inset-y-0 left-0 z-40 flex-col",
+          "bg-gradient-to-b from-gray-950 to-gray-900",
+          "text-white shadow-2xl transition-all duration-300",
+          isCollapsed ? "w-16" : "w-64"
+        )}
+      >
+        {/* Desktop Header */}
+        <div
+          className={cn(
+            "flex items-center border-b border-white/10 h-[60px]",
+            isCollapsed ? "justify-center px-0" : "justify-between px-4"
+          )}
+        >
+          {!isCollapsed ? (
+            <>
+              <Link
+                href={`/${role}/documents`}
+                className="flex items-center gap-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                aria-label="Go to Documents"
+              >
+                <div className="flex items-center justify-center rounded-md bg-white/5 p-1.5">
+                  <Image
+                    src="/metsa_logo.png"
+                    alt="Metsä"
+                    width={32}
+                    height={32}
+                    priority
+                    className="h-7 w-auto object-contain"
+                  />
+                </div>
+                <span className="text-sm font-semibold tracking-wide">
+                  Dashboard
+                </span>
+              </Link>
+              {/* Desktop Collapse Button - When expanded */}
+              <button
+                type="button"
+                onClick={toggleCollapse}
+                aria-label="Collapse sidebar"
+                aria-pressed={false}
+                className="p-2 rounded-md hover:bg-white/10 transition-colors"
+              >
+                <Menu size={18} />
+              </button>
+            </>
+          ) : (
+            /* When collapsed - centered button */
+            <button
+              type="button"
+              onClick={toggleCollapse}
+              aria-label="Expand sidebar"
+              aria-pressed={true}
+              className="p-3 rounded-md hover:bg-white/10 transition-colors"
+            >
+              <Menu size={18} />
+            </button>
+          )}
+        </div>
+
+        {/* Desktop Navigation */}
+        <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
           {filteredNavigation.map((item) => {
             const Icon = item.icon;
             const active = isActivePath(item.href);
@@ -229,7 +303,6 @@ export default function Sidebar() {
               <Link
                 key={item.name}
                 href={item.href}
-                onClick={handleLinkClick}
                 onMouseEnter={() => {
                   if (item.name === "Documents") {
                     queryClient.prefetchQuery({
@@ -263,7 +336,7 @@ export default function Sidebar() {
                 }}
                 className={cn(
                   "group relative flex items-center rounded-lg",
-                  "px-2.5 py-2 text-sm font-medium transition-colors",
+                  "px-2.5 py-2 text-sm font-medium transition-all",
                   active
                     ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-md shadow-emerald-600/20"
                     : "text-gray-300 hover:text-white hover:bg-white/10"
@@ -293,18 +366,15 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Footer: user + logout */}
-        <div className="border-t border-white/10 p-2 sm:p-3 space-y-2">
-          {/* User info */}
+        {/* Desktop Footer */}
+        <div className="border-t border-white/10 p-3 space-y-2">
           <div
             className={cn(
-              "flex items-center rounded-lg bg-white/5",
-              "px-2.5 py-2",
+              "flex items-center rounded-lg bg-white/5 px-2.5 py-2",
               isCollapsed ? "justify-center" : "justify-start"
             )}
-            aria-label="Current user"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-emerald-600 to-emerald-500 text-white text-sm font-bold">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-emerald-600 to-emerald-500 text-white text-sm font-bold shrink-0">
               {user.email?.charAt(0).toUpperCase()}
             </div>
             {!isCollapsed && (
@@ -319,7 +389,6 @@ export default function Sidebar() {
             )}
           </div>
 
-          {/* Logout */}
           <button
             type="button"
             onClick={logout}
@@ -328,9 +397,10 @@ export default function Sidebar() {
               "text-gray-300 hover:text-red-400 hover:bg-red-500/10 transition-colors",
               isCollapsed ? "justify-center" : ""
             )}
-            aria-label="Log out"
           >
-            <LogOut className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
+            <LogOut
+              className={cn("h-5 w-5 shrink-0", isCollapsed ? "" : "mr-3")}
+            />
             <span className={cn(isCollapsed ? "sr-only" : "inline")}>
               Logout
             </span>

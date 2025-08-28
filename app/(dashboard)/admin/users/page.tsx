@@ -26,6 +26,10 @@ import {
 import api from "@/lib/api";
 import { User, UserRole } from "@/types";
 import { format } from "date-fns";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import SimpleLoading from "@/components/SimpleLoading";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/contexts/ToastContext";
 
 /* Hook: auto-hide on scroll (down hides, up shows) */
 function useAutoHideHeader(offsetPx = 24, minDelta = 6) {
@@ -67,12 +71,14 @@ const ModernSelect = ({
   options,
   placeholder,
   icon: Icon,
+  disabled = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   placeholder?: string;
   icon?: ElementType;
+  disabled?: boolean;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const selectedOption = options.find((opt) => opt.value === value);
@@ -90,8 +96,11 @@ const ModernSelect = ({
     <div className="relative">
       <button
         type="button"
-        onClick={() => setIsOpen((o) => !o)}
-        className="w-full h-11 sm:h-12 px-3 sm:px-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-left flex items-center justify-between hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm"
+        onClick={() => !disabled && setIsOpen((o) => !o)}
+        disabled={disabled}
+        className={`w-full h-11 sm:h-12 px-3 sm:px-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-left flex items-center justify-between hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm ${
+          disabled ? "opacity-50 cursor-not-allowed" : ""
+        }`}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label="Open select"
@@ -117,7 +126,7 @@ const ModernSelect = ({
         />
       </button>
 
-      {isOpen && (
+      {isOpen && !disabled && (
         <>
           <button
             className="fixed inset-0 z-30 cursor-default"
@@ -164,14 +173,20 @@ const ModernToggle = ({
   onChange,
   label,
   description,
+  disabled = false,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label: string;
   description?: string;
+  disabled?: boolean;
 }) => {
   return (
-    <div className="flex items-start justify-between p-4 sm:p-5 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200">
+    <div
+      className={`flex items-start justify-between p-4 sm:p-5 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 ${
+        disabled ? "opacity-50" : ""
+      }`}
+    >
       <div className="flex-1 min-w-0 mr-4">
         <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
           {label}
@@ -184,12 +199,13 @@ const ModernToggle = ({
       </div>
       <button
         type="button"
-        onClick={() => onChange(!checked)}
+        onClick={() => !disabled && onChange(!checked)}
+        disabled={disabled}
         className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
           checked
             ? "bg-blue-600 dark:bg-blue-500"
             : "bg-gray-300 dark:bg-gray-600"
-        }`}
+        } ${disabled ? "cursor-not-allowed" : ""}`}
         aria-pressed={checked}
         aria-label="Toggle"
       >
@@ -202,26 +218,6 @@ const ModernToggle = ({
     </div>
   );
 };
-
-/* Loading Overlay */
-const LoadingOverlay = ({ message }: { message: string }) => (
-  <div className="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-    <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 sm:p-8 shadow-2xl border border-gray-200 dark:border-gray-800 max-w-sm w-full">
-      <div className="text-center space-y-4">
-        <div className="relative w-12 h-12 mx-auto">
-          <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-700 rounded-full" />
-          <div className="absolute inset-0 border-4 border-blue-600 dark:border-blue-400 rounded-full border-t-transparent animate-spin" />
-        </div>
-        <div className="space-y-2">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Processing
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400">{message}</p>
-        </div>
-      </div>
-    </div>
-  </div>
-);
 
 /* Modal (Escape to close) */
 const ModernModal = ({
@@ -297,7 +293,7 @@ const ConfirmDialog = ({
             {message}
           </p>
         </div>
-        <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end">
+        <div className="flex flex-col-reverse sm:flex-row-reverse gap-3 justify-end">
           <button
             onClick={onClose}
             className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
@@ -330,8 +326,9 @@ const getRoleColor = (role: UserRole) => {
   }
 };
 
-/* Main Page */
 export default function UsersManagementPage() {
+  const { user: currentUser } = useAuth();
+  const toast = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -409,9 +406,17 @@ export default function UsersManagementPage() {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check if trying to create admin without being super admin
+    if (newUser.role === UserRole.ADMIN && !currentUser?.is_super_admin) {
+      toast.error("Only super admin can create admin users");
+      return;
+    }
+
     setSaving(true);
     try {
       await api.post("/users", newUser);
+      toast.success("User created successfully");
       setIsCreateDialogOpen(false);
       setNewUser({
         username: "",
@@ -420,9 +425,9 @@ export default function UsersManagementPage() {
         role: UserRole.CUSTOMER,
       });
       await fetchUsers();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error creating user:", err);
-      setError("Error creating user. Please try again.");
+      toast.error(err.response?.data?.detail || "Error creating user");
     } finally {
       setSaving(false);
     }
@@ -442,15 +447,27 @@ export default function UsersManagementPage() {
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
+
+    // Check role change permissions
+    if (
+      editUser.role === UserRole.ADMIN &&
+      selectedUser.role !== UserRole.ADMIN &&
+      !currentUser?.is_super_admin
+    ) {
+      toast.error("Only super admin can assign admin role");
+      return;
+    }
+
     setSaving(true);
     try {
       await api.put(`/users/${selectedUser.id}`, editUser);
+      toast.success("User updated successfully");
       setIsEditDialogOpen(false);
       setSelectedUser(null);
       await fetchUsers();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error updating user:", err);
-      setError("Error updating user. Please try again.");
+      toast.error(err.response?.data?.detail || "Error updating user");
     } finally {
       setSaving(false);
     }
@@ -459,21 +476,25 @@ export default function UsersManagementPage() {
   const handleToggleActive = async (userId: string, currentStatus: boolean) => {
     try {
       await api.put(`/users/${userId}`, { is_active: !currentStatus });
+      toast.success(
+        `User ${!currentStatus ? "activated" : "deactivated"} successfully`
+      );
       await fetchUsers();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error updating user status:", err);
-      setError("Failed to update user status.");
+      toast.error(err.response?.data?.detail || "Failed to update user status");
     }
   };
 
   const handleDeleteUser = async () => {
     try {
       await api.delete(`/users/${confirmDialog.userId}`);
+      toast.success("User deleted successfully");
       setConfirmDialog({ isOpen: false, userId: "", username: "" });
       await fetchUsers();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error deleting user:", err);
-      setError("Error deleting user. Please try again.");
+      toast.error(err.response?.data?.detail || "Error deleting user");
     }
   };
 
@@ -488,6 +509,40 @@ export default function UsersManagementPage() {
     []
   );
 
+  const createRoleOptions = useMemo(() => {
+    // Only super admin can create admin users
+    if (currentUser?.is_super_admin) {
+      return Object.values(UserRole).map((role) => ({
+        value: role,
+        label: role.charAt(0).toUpperCase() + role.slice(1),
+      }));
+    } else {
+      return Object.values(UserRole)
+        .filter((role) => role !== UserRole.ADMIN)
+        .map((role) => ({
+          value: role,
+          label: role.charAt(0).toUpperCase() + role.slice(1),
+        }));
+    }
+  }, [currentUser]);
+
+  const editRoleOptions = useMemo(() => {
+    // Only super admin can assign admin role
+    if (currentUser?.is_super_admin) {
+      return Object.values(UserRole).map((role) => ({
+        value: role,
+        label: role.charAt(0).toUpperCase() + role.slice(1),
+      }));
+    } else {
+      return Object.values(UserRole)
+        .filter((role) => role !== UserRole.ADMIN)
+        .map((role) => ({
+          value: role,
+          label: role.charAt(0).toUpperCase() + role.slice(1),
+        }));
+    }
+  }, [currentUser]);
+
   const filteredUsers = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase();
     return users.filter((u) => {
@@ -500,28 +555,9 @@ export default function UsersManagementPage() {
     });
   }, [users, debouncedSearch, roleFilter]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
-        <div className="text-center space-y-6 max-w-md">
-          <div className="relative w-16 h-16 sm:w-20 sm:h-20 mx-auto">
-            <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-800 rounded-full" />
-            <div className="absolute inset-0 border-4 border-blue-600 dark:border-blue-400 rounded-full border-t-transparent animate-spin" />
-          </div>
-          <div className="space-y-2 sm:space-y-3">
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
-              Loading Users
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-sm sm:text-base">
-              Please wait while we retrieve user data...
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <SimpleLoading message="Loading..." fullScreen />;
 
-  /* User Card (Grid) */
+  /* User Card (Grid) - Updated with super admin protection */
   const UserCard = ({ user }: { user: User }) => (
     <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 sm:p-5 flex flex-col gap-4">
       <div className="flex items-start justify-between gap-4">
@@ -532,9 +568,17 @@ export default function UsersManagementPage() {
             </span>
           </div>
           <div className="min-w-0">
-            <h3 className="font-semibold text-lg text-gray-900 dark:text-white truncate">
-              {user.username}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-lg text-gray-900 dark:text-white truncate">
+                {user.username}
+              </h3>
+              {user.is_super_admin && (
+                <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-purple-500 to-pink-600 text-white text-xs font-bold rounded-full">
+                  <Shield className="w-3 h-3" />
+                  SUPER
+                </div>
+              )}
+            </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
               {user.email}
             </p>
@@ -556,21 +600,29 @@ export default function UsersManagementPage() {
           <Shield className="w-3 h-3" />
           {user.role}
         </span>
-        <button
-          onClick={() => handleToggleActive(user.id, user.is_active)}
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
-            user.is_active
-              ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
-              : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800"
-          }`}
-        >
-          {user.is_active ? (
+        {!user.is_super_admin && (
+          <button
+            onClick={() => handleToggleActive(user.id, user.is_active)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
+              user.is_active
+                ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+                : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800"
+            }`}
+          >
+            {user.is_active ? (
+              <CheckCircle className="w-3 h-3" />
+            ) : (
+              <XCircle className="w-3 h-3" />
+            )}
+            {user.is_active ? "Active" : "Inactive"}
+          </button>
+        )}
+        {user.is_super_admin && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">
             <CheckCircle className="w-3 h-3" />
-          ) : (
-            <XCircle className="w-3 h-3" />
-          )}
-          {user.is_active ? "Active" : "Inactive"}
-        </button>
+            Always Active
+          </span>
+        )}
       </div>
 
       <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
@@ -584,38 +636,54 @@ export default function UsersManagementPage() {
       </div>
 
       <div className="flex items-stretch gap-2 pt-2">
-        <button
-          onClick={() => handleEditClick(user)}
-          className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
-        >
-          <Edit className="w-4 h-4" />
-          Edit
-        </button>
-        {user.username === "admin" ? (
-          <div className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-sm font-medium rounded-lg border border-amber-200 dark:border-amber-800">
-            <Shield className="w-4 h-4" />
-            Protected
-          </div>
+        {!user.is_super_admin ? (
+          <>
+            <button
+              onClick={() => handleEditClick(user)}
+              className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
+            >
+              <Edit className="w-4 h-4" />
+              Edit
+            </button>
+            <button
+              onClick={() =>
+                setConfirmDialog({
+                  isOpen: true,
+                  userId: user.id,
+                  username: user.username,
+                })
+              }
+              className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete
+            </button>
+          </>
+        ) : currentUser?.is_super_admin ? (
+          <>
+            <button
+              onClick={() => handleEditClick(user)}
+              className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
+            >
+              <Edit className="w-4 h-4" />
+              Edit Profile
+            </button>
+            <div className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-400 text-sm font-medium rounded-lg border border-purple-200 dark:border-purple-800">
+              <Shield className="w-4 h-4" />
+              Protected
+            </div>
+          </>
         ) : (
-          <button
-            onClick={() =>
-              setConfirmDialog({
-                isOpen: true,
-                userId: user.id,
-                username: user.username,
-              })
-            }
-            className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all"
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete
-          </button>
+          <div className="w-full inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-400 text-sm font-medium rounded-lg border border-purple-200 dark:border-purple-800">
+            <Shield className="w-4 h-4" />
+            Super Admin Protected
+          </div>
         )}
       </div>
     </div>
   );
 
-  /* User Row (List) - Corrected Layout */
+  /* User Row (List) - Updated with super admin protection */
   const UserRow = ({ user }: { user: User }) => (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
       {/* LEFT: User Info */}
@@ -626,9 +694,17 @@ export default function UsersManagementPage() {
           </span>
         </div>
         <div className="min-w-0">
-          <h3 className="font-semibold text-gray-900 dark:text-white truncate">
-            {user.username}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+              {user.username}
+            </h3>
+            {user.is_super_admin && (
+              <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-purple-500 to-pink-600 text-white text-xs font-bold rounded-full">
+                <Shield className="w-3 h-3" />
+                SUPER
+              </div>
+            )}
+          </div>
           <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
             {user.email}
           </p>
@@ -645,21 +721,28 @@ export default function UsersManagementPage() {
           <Shield className="w-3 h-3" />
           {user.role}
         </span>
-        <button
-          onClick={() => handleToggleActive(user.id, user.is_active)}
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
-            user.is_active
-              ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
-              : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800"
-          }`}
-        >
-          {user.is_active ? (
+        {!user.is_super_admin ? (
+          <button
+            onClick={() => handleToggleActive(user.id, user.is_active)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
+              user.is_active
+                ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+                : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800"
+            }`}
+          >
+            {user.is_active ? (
+              <CheckCircle className="w-3 h-3" />
+            ) : (
+              <XCircle className="w-3 h-3" />
+            )}
+            {user.is_active ? "Active" : "Inactive"}
+          </button>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">
             <CheckCircle className="w-3 h-3" />
-          ) : (
-            <XCircle className="w-3 h-3" />
-          )}
-          {user.is_active ? "Active" : "Inactive"}
-        </button>
+            Always Active
+          </span>
+        )}
         {user.is_verified ? (
           <CheckCircle className="w-5 h-5 text-emerald-500" />
         ) : (
@@ -679,32 +762,48 @@ export default function UsersManagementPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleEditClick(user)}
-            className="inline-flex items-center justify-center gap-1.5 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            <Edit className="w-4 h-4" />
-            Edit
-          </button>
-          {user.username === "admin" ? (
-            <div className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-sm font-medium rounded-lg border border-amber-200 dark:border-amber-800">
-              <Shield className="w-4 h-4" />
-              Protected
-            </div>
+          {!user.is_super_admin ? (
+            <>
+              <button
+                onClick={() => handleEditClick(user)}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <Edit className="w-4 h-4" />
+                Edit
+              </button>
+              <button
+                onClick={() =>
+                  setConfirmDialog({
+                    isOpen: true,
+                    userId: user.id,
+                    username: user.username,
+                  })
+                }
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </button>
+            </>
+          ) : currentUser?.is_super_admin ? (
+            <>
+              <button
+                onClick={() => handleEditClick(user)}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <Edit className="w-4 h-4" />
+                Edit Profile
+              </button>
+              <div className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-400 text-sm font-medium rounded-lg border border-purple-200 dark:border-purple-800">
+                <Shield className="w-4 h-4" />
+                Protected
+              </div>
+            </>
           ) : (
-            <button
-              onClick={() =>
-                setConfirmDialog({
-                  isOpen: true,
-                  userId: user.id,
-                  username: user.username,
-                })
-              }
-              className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete
-            </button>
+            <div className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-400 text-sm font-medium rounded-lg border border-purple-200 dark:border-purple-800">
+              <Shield className="w-4 h-4" />
+              Super Admin
+            </div>
           )}
         </div>
       </div>
@@ -878,13 +977,26 @@ export default function UsersManagementPage() {
         )}
       </main>
 
-      {/* Create User Modal */}
+      {/* Create User Modal - Updated with role restrictions */}
       <ModernModal
         isOpen={isCreateDialogOpen}
         onClose={() => setIsCreateDialogOpen(false)}
         title="Create New User"
       >
         <form onSubmit={handleCreateUser} className="space-y-5 sm:space-y-6">
+          {currentUser?.is_super_admin && newUser.role === UserRole.ADMIN && (
+            <div className="p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl">
+              <div className="flex items-start gap-2">
+                <Shield className="w-4 h-4 text-purple-600 dark:text-purple-400 mt-0.5" />
+                <div className="text-xs">
+                  <p className="font-medium text-purple-800 dark:text-purple-200">
+                    Creating Admin User
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label
               htmlFor="username"
@@ -968,13 +1080,15 @@ export default function UsersManagementPage() {
               onChange={(value) =>
                 setNewUser({ ...newUser, role: value as UserRole })
               }
-              options={Object.values(UserRole).map((role) => ({
-                value: role,
-                label: role.charAt(0).toUpperCase() + role.slice(1),
-              }))}
+              options={createRoleOptions}
               placeholder="Select role"
               icon={Shield}
             />
+            {!currentUser?.is_super_admin && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Only super admin can create admin users
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row-reverse gap-3 pt-2">
@@ -1007,13 +1121,29 @@ export default function UsersManagementPage() {
         </form>
       </ModernModal>
 
-      {/* Edit User Modal */}
+      {/* Edit User Modal - Updated with restrictions for super admin */}
       <ModernModal
         isOpen={isEditDialogOpen}
         onClose={() => setIsEditDialogOpen(false)}
         title="Edit User"
       >
         <form onSubmit={handleUpdateUser} className="space-y-5 sm:space-y-6">
+          {selectedUser?.is_super_admin && (
+            <div className="p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl">
+              <div className="flex items-start gap-2">
+                <Shield className="w-4 h-4 text-purple-600 dark:text-purple-400 mt-0.5" />
+                <div className="text-xs">
+                  <p className="font-medium text-purple-800 dark:text-purple-200 mb-1">
+                    Super Admin Account
+                  </p>
+                  <p className="text-purple-700 dark:text-purple-300">
+                    Limited editing capabilities for security.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label
               htmlFor="edit-username"
@@ -1061,23 +1191,40 @@ export default function UsersManagementPage() {
               onChange={(value) =>
                 setEditUser({ ...editUser, role: value as UserRole })
               }
-              options={Object.values(UserRole).map((role) => ({
-                value: role,
-                label: role.charAt(0).toUpperCase() + role.slice(1),
-              }))}
+              options={editRoleOptions}
               placeholder="Select role"
               icon={Shield}
+              disabled={selectedUser?.is_super_admin}
             />
+            {selectedUser?.is_super_admin && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Super admin role cannot be changed
+              </p>
+            )}
+            {!currentUser?.is_super_admin &&
+              editUser.role !== selectedUser?.role && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Only super admin can assign admin role
+                </p>
+              )}
           </div>
 
-          <ModernToggle
-            checked={editUser.is_active}
-            onChange={(checked) =>
-              setEditUser({ ...editUser, is_active: checked })
-            }
-            label="Account Status"
-            description="Enable or disable user account access."
-          />
+          {!selectedUser?.is_super_admin ? (
+            <ModernToggle
+              checked={editUser.is_active}
+              onChange={(checked) =>
+                setEditUser({ ...editUser, is_active: checked })
+              }
+              label="Account Status"
+              description="Enable or disable user account access."
+            />
+          ) : (
+            <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Super admin account is always active
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-col sm:flex-row-reverse gap-3 pt-2">
             <button

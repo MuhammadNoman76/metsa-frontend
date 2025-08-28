@@ -7,21 +7,17 @@ import api from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 import { User, UserRole, ApprovalStatus } from "@/types";
 import { format } from "date-fns";
+import SimpleLoading from "@/components/SimpleLoading";
 import {
   UserCheck,
   UserX,
   Clock,
   Search,
-  Filter,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
   Building,
   Mail,
   Phone,
   Calendar,
   Shield,
-  Info,
   Loader2,
 } from "lucide-react";
 
@@ -332,18 +328,7 @@ export default function ApprovalsPage() {
     return matchesSearch && matchesRole;
   });
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin mx-auto" />
-          <p className="text-gray-600 dark:text-gray-400">
-            Loading pending approvals...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <SimpleLoading message="Loading..." fullScreen />;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">

@@ -17,13 +17,15 @@ import {
   XCircle,
   Clock,
   UserPlus,
+  Mail,
+  AtSign,
 } from "lucide-react";
 import LoadingButton from "@/components/LoadingButton";
 import { useToast } from "@/contexts/ToastContext";
 import { useTheme } from "@/contexts/ThemeContext";
 
 export default function LoginPage() {
-  const [username, setUsername] = useState("");
+  const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [errorType, setErrorType] = useState<"error" | "pending" | "rejected">(
@@ -35,13 +37,19 @@ export default function LoginPage() {
   const toast = useToast();
   const { setTheme, resolvedTheme } = useTheme();
 
+  // Check if input is email or username
+  const isEmail = (input: string) => {
+    return input.includes("@") && input.includes(".");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
     try {
-      await login(username, password);
+      // The login function will accept either username or email
+      await login(usernameOrEmail, password);
       toast.success("Signed in successfully");
     } catch (err) {
       const axiosErr = err as {
@@ -67,7 +75,9 @@ export default function LoginPage() {
       } else {
         setErrorType("error");
         const friendly =
-          typeof msg === "string" ? msg : "Invalid username or password";
+          typeof msg === "string"
+            ? msg
+            : "Invalid credentials. Please check your username/email and password.";
         setError(friendly);
       }
 
@@ -135,6 +145,18 @@ export default function LoginPage() {
       default:
         return "Authentication Failed";
     }
+  };
+
+  // Dynamic icon based on input type
+  const getInputIcon = () => {
+    if (isEmail(usernameOrEmail)) {
+      return (
+        <Mail className="w-5 h-5 text-gray-400 dark:text-gray-500 group-focus-within:text-blue-500 dark:group-focus-within:text-blue-400 transition-colors duration-200" />
+      );
+    }
+    return (
+      <User className="w-5 h-5 text-gray-400 dark:text-gray-500 group-focus-within:text-blue-500 dark:group-focus-within:text-blue-400 transition-colors duration-200" />
+    );
   };
 
   return (
@@ -211,29 +233,33 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* Username Field */}
+              {/* Username/Email Field */}
               <div className="space-y-2">
                 <label
-                  htmlFor="username"
+                  htmlFor="usernameOrEmail"
                   className="block text-sm font-semibold text-gray-900 dark:text-gray-100 transition-colors duration-300"
                 >
-                  Username
+                  Username or Email
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <User className="w-5 h-5 text-gray-400 dark:text-gray-500 group-focus-within:text-blue-500 dark:group-focus-within:text-blue-400 transition-colors duration-200" />
+                    {getInputIcon()}
                   </div>
                   <input
-                    id="username"
+                    id="usernameOrEmail"
                     type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    value={usernameOrEmail}
+                    onChange={(e) => setUsernameOrEmail(e.target.value)}
                     className="w-full h-14 pl-12 pr-4 bg-white/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 shadow-sm backdrop-blur-xl hover:bg-white/70 dark:hover:bg-gray-800/70"
-                    placeholder="Enter your username"
+                    placeholder="Username or email@example.com"
                     required
-                    autoComplete="username"
+                    autoComplete="username email"
                   />
                 </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                  <AtSign className="w-3 h-3" />
+                  You can sign in using either your username or email address
+                </p>
               </div>
 
               {/* Password Field */}
@@ -296,6 +322,16 @@ export default function LoginPage() {
                 >
                   Forgot password?
                 </button>
+              </div>
+
+              {/* Login Methods Info */}
+              <div className="p-3 bg-blue-50/50 dark:bg-blue-900/20 border border-blue-200/50 dark:border-blue-800/50 rounded-xl">
+                <div className="flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
+                  <Info className="w-4 h-4 flex-shrink-0" />
+                  <span>
+                    You can sign in using your username or email address
+                  </span>
+                </div>
               </div>
 
               {/* Submit Button */}

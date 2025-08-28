@@ -1,6 +1,9 @@
+// app\(dashboard)\[role]\documents\page.tsx
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { ElementType, ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   FileText,
@@ -12,7 +15,6 @@ import {
   Grid,
   List,
   Plus,
-  Calendar,
   FolderOpen,
   Users,
   Lock,
@@ -21,6 +23,12 @@ import {
   X,
   Shield,
   EyeOff,
+  Check,
+  Loader2,
+  AlertCircle,
+  Filter,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import api from "@/lib/api";
@@ -39,338 +47,451 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import DocumentPreviewModal from "@/components/DocumentPreviewModal";
 import { useToast } from "@/contexts/ToastContext";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import SimpleLoading from "@/components/SimpleLoading";
 
-// Utils
-const bytesToMB = (bytes: number) => (bytes / 1024 / 1024).toFixed(1) + " MB";
+/* Hook: auto-hide on scroll (down hides, up shows) */
+function useAutoHideHeader(offsetPx = 24, minDelta = 6) {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    let lastY = window.scrollY || 0;
+    let ticking = false;
 
-// A11y: Visually-hidden label
-const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
-  <span className="sr-only">{children}</span>
-);
+    const onScroll = () => {
+      const y = window.scrollY || 0;
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const delta = y - lastY;
+          if (Math.abs(delta) > minDelta) {
+            if (delta > 0 && y > offsetPx) {
+              setHidden(true);
+            } else {
+              setHidden(false);
+            }
+          }
+          lastY = y;
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
 
-// Theme-aware Select (light + dark)
-const ThemedSelect = ({
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [offsetPx, minDelta]);
+
+  return hidden;
+}
+
+/* Mobile-friendly Select (with Escape to close) */
+const ModernSelect = ({
   value,
   onChange,
   options,
   placeholder,
-  label,
-  ariaLabel,
+  icon: Icon,
 }: {
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   placeholder?: string;
-  label?: string;
-  ariaLabel?: string;
+  icon?: ElementType;
 }) => {
-  const [open, setOpen] = useState(false);
-  const selected = options.find((o) => o.value === value);
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = options.find((opt) => opt.value === value);
 
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") setIsOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [isOpen]);
 
   return (
-    <div className="w-full">
-      {label && (
-        <label className="block text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">
-          {label}
-        </label>
-      )}
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          aria-label={ariaLabel}
-          className="w-full h-11 px-4 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-xl text-left flex items-center justify-between text-sm text-gray-900 dark:text-gray-200 hover:border-gray-400 dark:hover:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600"
-        >
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen((o) => !o)}
+        className="w-full h-11 sm:h-12 px-3 sm:px-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-left flex items-center justify-between hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label="Open select"
+      >
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {Icon && (
+            <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+          )}
           <span
             className={
-              selected
-                ? "text-gray-900 dark:text-gray-200"
-                : "text-gray-500 dark:text-gray-400"
+              selectedOption
+                ? "text-gray-900 dark:text-white font-medium truncate"
+                : "text-gray-500 dark:text-gray-400 truncate"
             }
           >
-            {selected ? selected.label : placeholder}
+            {selectedOption ? selectedOption.label : placeholder}
           </span>
-          <ChevronDown
-            className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""
-              }`}
-          />
-        </button>
+        </div>
+        <ChevronDown
+          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
 
-        {open && (
-          <>
-            <button
-              className="fixed inset-0 z-20 cursor-default"
-              onClick={() => setOpen(false)}
-              aria-hidden="true"
-            />
-            <div
-              role="listbox"
-              className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl z-30 max-h-64 overflow-auto"
-            >
-              {options.map((opt) => (
-                <button
-                  key={opt.value}
-                  role="option"
-                  aria-selected={opt.value === value}
-                  type="button"
-                  onClick={() => {
-                    onChange(opt.value);
-                    setOpen(false);
-                  }}
-                  className="w-full px-4 py-2.5 text-left text-sm text-gray-900 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
+      {isOpen && (
+        <>
+          <button
+            className="fixed inset-0 z-30 cursor-default"
+            onClick={() => setIsOpen(false)}
+            aria-hidden="true"
+            tabIndex={-1}
+          />
+          <div
+            className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-40 max-h-64 overflow-auto"
+            role="listbox"
+          >
+            {options.map((option, index) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                role="option"
+                aria-selected={value === option.value}
+                className={`w-full px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between group transition-colors duration-150 ${
+                  index === 0 ? "rounded-t-xl" : ""
+                } ${index === options.length - 1 ? "rounded-b-xl" : ""}`}
+              >
+                <span className="text-gray-900 dark:text-white font-medium">
+                  {option.label}
+                </span>
+                {value === option.value && (
+                  <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+/* Modal (Escape to close) */
+const ModernModal = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+}) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="relative bg-white dark:bg-gray-900 rounded-2xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-gray-200 dark:border-gray-800 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+            {title}
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+            aria-label="Close modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        {children}
       </div>
     </div>
   );
 };
 
-// Confirm Modal (theme-aware)
-const ConfirmModal = ({
-  open,
+/* Confirm Dialog */
+const ConfirmDialog = ({
+  isOpen,
+  onClose,
+  onConfirm,
   title,
   message,
-  onCancel,
-  onConfirm,
 }: {
-  open: boolean;
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
   title: string;
   message: string;
-  onCancel: () => void;
-  onConfirm: () => void;
 }) => {
-  if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onCancel}
-        aria-hidden="true"
-      />
-      <div className="relative w-full max-w-md bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl p-6">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {title}
-          </h3>
-          <button
-            onClick={onCancel}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-            aria-label="Close modal"
-          >
-            <X className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-          </button>
+    <ModernModal isOpen={isOpen} onClose={onClose} title={title}>
+      <div className="space-y-5 sm:space-y-6">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
+            <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600 dark:text-red-400" />
+          </div>
+          <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+            {message}
+          </p>
         </div>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">{message}</p>
-        <div className="flex justify-end gap-3">
+        <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end">
           <button
-            onClick={onCancel}
-            className="px-4 py-2 rounded-xl bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 dark:border-gray-800"
+            onClick={onClose}
+            className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700"
+            className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
           >
-            Delete
+            Delete Document
           </button>
         </div>
       </div>
-    </div>
+    </ModernModal>
   );
 };
 
+/* Helpers */
+const getVisibilityColor = (visibility: string) => {
+  switch (visibility) {
+    case "public":
+      return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800";
+    case "private":
+      return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800";
+    case "internal":
+      return "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800";
+    default:
+      return "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 border-gray-200 dark:border-gray-700";
+  }
+};
+
+const getCategoryColor = (category: string) => {
+  const map: Record<string, string> = {
+    commercial:
+      "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800",
+    quality:
+      "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
+    safety:
+      "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800",
+    compliance:
+      "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800",
+    contracts:
+      "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800",
+    specifications:
+      "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800",
+    other:
+      "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700",
+  };
+  return map[category] || map.other;
+};
+
+const getVisibilityIcon = (visibility: string) => {
+  switch (visibility) {
+    case "public":
+      return <Globe className="w-3 h-3" />;
+    case "private":
+      return <Lock className="w-3 h-3" />;
+    case "internal":
+      return <Users className="w-3 h-3" />;
+    default:
+      return null;
+  }
+};
+
+const formatFileSize = (bytes: number) => {
+  const kb = bytes / 1024;
+  const mb = kb / 1024;
+  if (mb >= 1) {
+    return `${mb.toFixed(1)} MB`;
+  } else if (kb >= 1) {
+    return `${kb.toFixed(0)} KB`;
+  } else {
+    return `${bytes} B`;
+  }
+};
+
+/* Main Page */
 export default function DocumentsPage() {
   const router = useRouter();
-  const params = useSearchParams();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const toast = useToast();
   const { user } = useAuth();
 
-  // View mode
-  const [view, setView] = useState<"grid" | "list">("grid");
+  // State
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Filters + debounced state
-  const [filters, setFilters] = useState({
-    search: params.get("search") ?? "",
-    category: (params.get("category") as string) ?? "all",
-    visibility: (params.get("visibility") as string) ?? "all",
-    page: 1,
-    pageSize: 20,
-  });
-  const [debounced, setDebounced] = useState(filters);
+  // View mode (persisted)
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(filters), 300);
+    const stored = localStorage.getItem("documents:viewMode");
+    if (stored === "list" || stored === "grid") setViewMode(stored);
+  }, []);
+  useEffect(() => {
+    localStorage.setItem("documents:viewMode", viewMode);
+  }, [viewMode]);
+
+  // Auto-hide header
+  const headerHidden = useAutoHideHeader(24, 6);
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 250);
     return () => clearTimeout(t);
-  }, [filters]);
+  }, [searchQuery]);
 
-  // Keep URL in sync (no scroll jump)
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [visibilityFilter, setVisibilityFilter] = useState<string>("all");
+
+  // Confirm delete
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    documentId: string;
+    documentTitle: string;
+  }>({ isOpen: false, documentId: "", documentTitle: "" });
+
+  // Preview modal
+  const [previewModal, setPreviewModal] = useState<{
+    isOpen: boolean;
+    documentId: string;
+    documentTitle: string;
+    fileName: string;
+    mimeType?: string;
+    canDownload: boolean;
+  }>({
+    isOpen: false,
+    documentId: "",
+    documentTitle: "",
+    fileName: "",
+    mimeType: "",
+    canDownload: false,
+  });
+
   useEffect(() => {
-    const sp = new URLSearchParams();
-    if (filters.search) sp.set("search", filters.search);
-    if (filters.category !== "all") sp.set("category", filters.category);
-    if (filters.visibility !== "all") sp.set("visibility", filters.visibility);
-    const qs = sp.toString();
-    router.replace(qs ? `?${qs}` : "?", { scroll: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.search, filters.category, filters.visibility]);
+    fetchDocuments();
+  }, []);
 
-  // Build API url
-  const buildUrl = (f: typeof debounced) => {
-    const q: string[] = [];
-    if (f.search) q.push(`search=${encodeURIComponent(f.search)}`);
-    if (f.category !== "all")
-      q.push(`category=${encodeURIComponent(f.category)}`);
-    if (f.visibility !== "all")
-      q.push(`visibility=${encodeURIComponent(f.visibility)}`);
-    q.push(`skip=${(f.page - 1) * f.pageSize}`);
-    q.push(`limit=${f.pageSize}`);
-    return `/documents?${q.join("&")}`;
+  const fetchDocuments = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params: string[] = [];
+      if (debouncedSearch)
+        params.push(`search=${encodeURIComponent(debouncedSearch)}`);
+      if (categoryFilter !== "all")
+        params.push(`category=${encodeURIComponent(categoryFilter)}`);
+      if (visibilityFilter !== "all")
+        params.push(`visibility=${encodeURIComponent(visibilityFilter)}`);
+      const queryString = params.length > 0 ? `?${params.join("&")}` : "";
+
+      const response = await api.get(`/documents${queryString}`);
+      setDocuments(response.data);
+    } catch (err) {
+      console.error("Error fetching documents:", err);
+      setError("Failed to load documents. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Fetch
-  const {
-    data: documents,
-    isLoading,
-    isFetching,
-  } = useQuery({
-    queryKey: ["documents", debounced],
-    queryFn: async () =>
-      (await api.get(buildUrl(debounced))).data as Document[],
-    placeholderData: keepPreviousData,
-    staleTime: 15_000,
-    gcTime: 5 * 60_000,
-    refetchOnWindowFocus: true,
-  });
+  // Refetch when filters change
+  useEffect(() => {
+    if (!loading) {
+      fetchDocuments();
+    }
+  }, [debouncedSearch, categoryFilter, visibilityFilter]);
+
+  const handleDeleteDocument = async () => {
+    try {
+      setSaving(true);
+      await api.delete(`/documents/${confirmDialog.documentId}`);
+      setConfirmDialog({ isOpen: false, documentId: "", documentTitle: "" });
+      toast.success("Document deleted successfully");
+      await fetchDocuments();
+    } catch (err) {
+      console.error("Error deleting document:", err);
+      toast.error("Failed to delete document. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDownload = async (doc: Document) => {
+    try {
+      const response = await api.get(`/documents/${doc.id}/download`, {
+        responseType: "blob",
+      });
+      const blob = new Blob([response.data]);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = doc.file_name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Document downloaded successfully");
+    } catch (err) {
+      console.error("Error downloading document:", err);
+      toast.error("Failed to download document. Please try again.");
+    }
+  };
+
+  const handlePreview = (doc: Document) => {
+    const canDownload =
+      !doc.is_viewable_only && user?.role !== UserRole.CUSTOMER;
+    setPreviewModal({
+      isOpen: true,
+      documentId: doc.id,
+      documentTitle: doc.title,
+      fileName: doc.file_name,
+      mimeType: doc.mime_type,
+      canDownload,
+    });
+  };
+
+  const handleEdit = (doc: Document) => {
+    router.push(`/${user?.role}/documents/${doc.id}/edit`);
+  };
 
   const canEdit =
     user?.role === UserRole.ADMIN || user?.role === UserRole.EDITOR;
   const canDelete = user?.role === UserRole.ADMIN;
 
-  // Delete with optimistic update
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => api.delete(`/documents/${id}`),
-    onMutate: async (id: string) => {
-      await queryClient.cancelQueries({ queryKey: ["documents"] });
-      const key = ["documents", debounced] as const;
-      const previous = queryClient.getQueryData<Document[]>(key);
-      if (previous) {
-        queryClient.setQueryData<Document[]>(
-          key,
-          previous.filter((d) => d.id !== id)
-        );
-      }
-      return { previous, key };
-    },
-    onError: (_e, _id, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(ctx.key, ctx.previous);
-      toast.error("Failed to delete document. Please try again.");
-    },
-    onSuccess: () => toast.success("Document deleted"),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["documents"] });
-    },
-  });
-
-  // Delete modal
-  const [confirm, setConfirm] = useState<{
-    open: boolean;
-    id: string;
-    title: string;
-  }>({
-    open: false,
-    id: "",
-    title: "",
-  });
-  const askDelete = (id: string, title: string) =>
-    setConfirm({ open: true, id, title });
-  const confirmDelete = async () => {
-    const id = confirm.id;
-    setConfirm({ open: false, id: "", title: "" });
-    await deleteMutation.mutateAsync(id);
-  };
-
-  // Preview modal
-  const [preview, setPreview] = useState<{
-    open: boolean;
-    id: string;
-    title: string;
-    fileName: string;
-    mime?: string;
-    canDownload: boolean;
-  }>({
-    open: false,
-    id: "",
-    title: "",
-    fileName: "",
-    mime: "",
-    canDownload: false,
-  });
-
-  const openPreview = (doc: Document) => {
-    const canDownload =
-      !doc.is_viewable_only && user?.role !== UserRole.CUSTOMER;
-    setPreview({
-      open: true,
-      id: doc.id,
-      title: doc.title,
-      fileName: doc.file_name,
-      mime: doc.mime_type,
-      canDownload,
-    });
-  };
-
-  const handleEdit = (id: string) =>
-    router.push(`/${user?.role}/documents/${id}/edit`);
-
-  const handleDownload = async (id: string, fileName: string) => {
-    try {
-      const res = await api.get(`/documents/${id}/download`, {
-        responseType: "blob",
-      });
-      const blob = new Blob([res.data], {
-        type: res.headers["content-type"] || "application/octet-stream",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (e: unknown) {
-      const status = (e as { response?: { status?: number } })?.response?.status;
-      if (status === 403)
-        toast.error("Download not allowed for this document.");
-      else if (status === 404) toast.error("Document not found.");
-      else toast.error("Unable to download. Please try again.");
-    }
-  };
-
-  // Options
   const categoryOptions = useMemo(
     () => [
       { value: "all", label: "All Categories" },
-      ...Object.values(DocumentCategory).map((c) => ({
-        value: c,
-        label: c.charAt(0).toUpperCase() + c.slice(1),
+      ...Object.values(DocumentCategory).map((cat) => ({
+        value: cat,
+        label: cat.charAt(0).toUpperCase() + cat.slice(1),
       })),
     ],
     []
@@ -379,542 +500,460 @@ export default function DocumentsPage() {
   const visibilityOptions = useMemo(
     () => [
       { value: "all", label: "All Visibility" },
-      ...Object.values(DocumentVisibility).map((v) => ({
-        value: v,
-        label: v.charAt(0).toUpperCase() + v.slice(1),
+      ...Object.values(DocumentVisibility).map((vis) => ({
+        value: vis,
+        label: vis.charAt(0).toUpperCase() + vis.slice(1),
       })),
     ],
     []
   );
 
-  const getVisibilityIcon = (v: string) =>
-    v === "public" ? (
-      <Globe className="w-3 h-3" />
-    ) : v === "private" ? (
-      <Lock className="w-3 h-3" />
-    ) : (
-      <Users className="w-3 h-3" />
-    );
+  const filteredDocuments = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    return documents.filter((doc) => {
+      const matchesSearch =
+        !q ||
+        doc.title.toLowerCase().includes(q) ||
+        doc.file_name.toLowerCase().includes(q) ||
+        (doc.description && doc.description.toLowerCase().includes(q));
+      const matchesCategory =
+        categoryFilter === "all" || doc.category === categoryFilter;
+      const matchesVisibility =
+        visibilityFilter === "all" || doc.visibility === visibilityFilter;
+      return matchesSearch && matchesCategory && matchesVisibility;
+    });
+  }, [documents, debouncedSearch, categoryFilter, visibilityFilter]);
 
-  // theme-aware pill colors
-  const getVisibilityColor = (v: string) =>
-    v === "public"
-      ? "bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800"
-      : v === "private"
-        ? "bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800"
-        : "bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800";
+  if (loading) return <SimpleLoading message="Loading..." fullScreen />;
 
-  const getCategoryColor = (c: string) => {
-    const map: Record<string, string> = {
-      commercial:
-        "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-      quality:
-        "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-      safety: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-      compliance:
-        "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-      contracts:
-        "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-      specifications:
-        "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
-      other: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-    };
-    return map[c] || map.other;
-  };
-
-  // Actions for card layout
-  const CardActions = ({ doc }: { doc: Document }) => (
-    <div className="flex flex-wrap gap-2">
-      <button
-        onClick={() => openPreview(doc)}
-        className="flex items-center gap-2 px-4 py-2.5 text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded-xl transition-colors font-medium min-w-[120px] justify-center"
-        aria-label={`Preview ${doc.title}`}
-      >
-        <Eye className="w-4 h-4" />
-        Preview
-      </button>
-
-      {!doc.is_viewable_only && user?.role !== UserRole.CUSTOMER ? (
-        <button
-          onClick={() => handleDownload(doc.id, doc.file_name)}
-          className="flex items-center gap-2 px-4 py-2.5 text-sm bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30 rounded-xl transition-colors font-medium min-w-[120px] justify-center"
-          aria-label={`Download ${doc.title}`}
-        >
-          <Download className="w-4 h-4" />
-          Download
-        </button>
-      ) : (
-        <div
-          className="flex items-center gap-2 px-4 py-2.5 text-sm bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800 rounded-xl font-medium min-w-[120px] justify-center"
-          aria-label="View only"
-        >
-          <EyeOff className="w-4 h-4" />
-          View Only
-        </div>
-      )}
-
-      {canEdit && (
-        <button
-          onClick={() => handleEdit(doc.id)}
-          className="flex items-center gap-2 px-4 py-2.5 text-sm bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-800 dark:hover:bg-gray-800 rounded-xl transition-colors font-medium min-w-[120px] justify-center"
-          aria-label={`Edit ${doc.title}`}
-        >
-          <Edit className="w-4 h-4" />
-          Edit
-        </button>
-      )}
-
-      {canDelete && (
-        <button
-          onClick={() => askDelete(doc.id, doc.title)}
-          className="flex items-center gap-2 px-4 py-2.5 text-sm bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 rounded-xl transition-colors font-medium min-w-[120px] justify-center"
-          aria-label={`Delete ${doc.title}`}
-        >
-          <Trash2 className="w-4 h-4" />
-          Delete
-        </button>
-      )}
-    </div>
-  );
-
+  /* Document Card (Grid) */
   const DocumentCard = ({ doc }: { doc: Document }) => (
-    <div className="group bg-white dark:bg-gray-950 rounded-2xl border border-gray-200 dark:border-gray-800 hover:shadow-lg transition-all duration-200 overflow-hidden">
-      <div className="p-5">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-4 flex-1 min-w-0">
-            <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
-              <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate text-lg">
-                {doc.title}
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-1">
-                {doc.file_name}
-              </p>
-            </div>
+    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 sm:p-5 flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
+            <FileText className="w-6 h-6 text-white" />
           </div>
-        </div>
-
-        {doc.description && (
-          <p className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2 text-sm leading-relaxed">
-            {doc.description}
-          </p>
-        )}
-
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <span
-            className={`inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-lg ${getCategoryColor(
-              doc.category
-            )}`}
-          >
-            <FolderOpen className="w-3 h-3 mr-1.5" />
-            {doc.category}
-          </span>
-          <span
-            className={`inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-lg ${getVisibilityColor(
-              doc.visibility
-            )} gap-1.5`}
-          >
-            {getVisibilityIcon(doc.visibility)}
-            {doc.visibility}
-          </span>
-          {doc.is_viewable_only && (
-            <span className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-lg bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 gap-1.5">
-              <Shield className="w-3 h-3" />
-              View Only
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-6">
-          <span className="font-medium">{bytesToMB(doc.file_size)}</span>
-          <span className="flex items-center gap-1.5">
-            <Calendar className="w-3 h-3" />
-            {format(new Date(doc.updated_at), "MMM dd, yyyy")}
-          </span>
-        </div>
-
-        <CardActions doc={doc} />
-      </div>
-    </div>
-  );
-
-  const DocumentRow = ({ doc }: { doc: Document }) => (
-    <div className="group bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 hover:shadow-md transition-all duration-150 p-4">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4 flex-1 min-w-0">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
-            <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
+          <div className="min-w-0">
+            <h3 className="font-semibold text-lg text-gray-900 dark:text-white truncate">
               {doc.title}
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-0.5">
-              {doc.description || doc.file_name}
+            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+              {doc.file_name}
             </p>
           </div>
-
-          <div className="hidden md:flex items-center gap-3 ml-4">
-            <span
-              className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-lg ${getCategoryColor(
-                doc.category
-              )}`}
-            >
-              {doc.category}
-            </span>
-            <span
-              className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-lg ${getVisibilityColor(
-                doc.visibility
-              )} gap-1`}
-            >
-              {getVisibilityIcon(doc.visibility)}
-              {doc.visibility}
-            </span>
-            {doc.is_viewable_only && (
-              <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-lg bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 gap-1">
-                <Shield className="w-3 h-3" />
-                View Only
-              </span>
-            )}
-            <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-              {bytesToMB(doc.file_size)}
-            </span>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {format(new Date(doc.updated_at), "MMM dd, yyyy")}
-            </span>
-          </div>
         </div>
-
-        <div className="flex items-center gap-1 sm:gap-2">
-          <button
-            onClick={() => openPreview(doc)}
-            className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
-            title="Preview"
-            aria-label={`Preview ${doc.title}`}
-          >
-            <Eye className="w-4 h-4" />
-          </button>
-
-          {!doc.is_viewable_only && user?.role !== UserRole.CUSTOMER ? (
-            <button
-              onClick={() => handleDownload(doc.id, doc.file_name)}
-              className="p-2 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
-              title="Download"
-              aria-label={`Download ${doc.title}`}
-            >
-              <Download className="w-4 h-4" />
-            </button>
-          ) : (
-            <div
-              className="p-2 rounded-lg text-amber-600 dark:text-amber-400 cursor-not-allowed"
-              title="View Only"
-            >
-              <EyeOff className="w-4 h-4" />
-            </div>
-          )}
-
-          {canEdit && (
-            <button
-              onClick={() => handleEdit(doc.id)}
-              className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-              title="Edit"
-              aria-label={`Edit ${doc.title}`}
-            >
-              <Edit className="w-4 h-4" />
-            </button>
-          )}
-
-          {canDelete && (
-            <button
-              onClick={() => askDelete(doc.id, doc.title)}
-              className="p-2 rounded-lg text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-              title="Delete"
-              aria-label={`Delete ${doc.title}`}
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
-        </div>
+        {doc.is_viewable_only ? (
+          <EyeOff className="w-5 h-5 text-amber-500 flex-shrink-0" />
+        ) : (
+          <Eye className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+        )}
       </div>
 
-      {/* Small-screen meta */}
-      <div className="md:hidden mt-3 flex items-center flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span
-          className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-lg ${getCategoryColor(
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border ${getCategoryColor(
             doc.category
           )}`}
         >
+          <FolderOpen className="w-3 h-3" />
           {doc.category}
         </span>
-        <span
-          className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-lg ${getVisibilityColor(
+        <button
+          onClick={() => toast.info(`Document visibility: ${doc.visibility}`)}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${getVisibilityColor(
             doc.visibility
-          )} gap-1`}
+          )}`}
         >
           {getVisibilityIcon(doc.visibility)}
           {doc.visibility}
-        </span>
-        {doc.is_viewable_only && (
-          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-lg bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 gap-1">
-            <Shield className="w-3 h-3" />
-            View Only
-          </span>
-        )}
-        <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-          {bytesToMB(doc.file_size)}
-        </span>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
-          {format(new Date(doc.updated_at), "MMM dd, yyyy")}
-        </span>
+        </button>
       </div>
-    </div>
-  );
 
-  // Header toolbar
-  const Toolbar = () => (
-    <div className="flex items-center gap-3">
-      <div className="flex bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-1">
+      <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+        <p>Size: {formatFileSize(doc.file_size)}</p>
+        <p>Updated: {format(new Date(doc.updated_at), "MMM dd, yyyy")}</p>
+      </div>
+
+      <div className="flex items-stretch gap-2 pt-2">
         <button
-          onClick={() => setView("grid")}
-          aria-pressed={view === "grid"}
-          aria-label="Grid view"
-          className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors ${view === "grid"
-            ? "bg-blue-600 text-white"
-            : "text-gray-600 hover:text-gray-900 hover:bg-white dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800"
-            }`}
+          onClick={() => handlePreview(doc)}
+          className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
         >
-          <Grid className="w-4 h-4" />
-          <VisuallyHidden>Grid</VisuallyHidden>
+          <Eye className="w-4 h-4" />
+          View
         </button>
-        <button
-          onClick={() => setView("list")}
-          aria-pressed={view === "list"}
-          aria-label="List view"
-          className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors ${view === "list"
-            ? "bg-blue-600 text-white"
-            : "text-gray-600 hover:text-gray-900 hover:bg-white dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800"
-            }`}
-        >
-          <List className="w-4 h-4" />
-          <VisuallyHidden>List</VisuallyHidden>
-        </button>
+        {doc.is_viewable_only || user?.role === UserRole.CUSTOMER ? (
+          <div className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-sm font-medium rounded-lg border border-amber-200 dark:border-amber-800">
+            <Shield className="w-4 h-4" />
+            Protected
+          </div>
+        ) : (
+          <button
+            onClick={() => handleDownload(doc)}
+            className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-all"
+          >
+            <Download className="w-4 h-4" />
+            Download
+          </button>
+        )}
       </div>
 
       {canEdit && (
-        <button
-          onClick={() => router.push(`/${user?.role}/documents/upload`)}
-          className="inline-flex items-center gap-2 h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Document
-        </button>
+        <div className="flex items-stretch gap-2">
+          <button
+            onClick={() => handleEdit(doc)}
+            className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
+          >
+            <Edit className="w-4 h-4" />
+            Edit
+          </button>
+          {canDelete && (
+            <button
+              onClick={() =>
+                setConfirmDialog({
+                  isOpen: true,
+                  documentId: doc.id,
+                  documentTitle: doc.title,
+                })
+              }
+              className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
 
-  const LoadingCard = () => (
-    <div className="bg-white dark:bg-gray-950 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 animate-pulse">
-      <div className="flex items-center gap-4 mb-4">
-        <div className="w-12 h-12 bg-gray-200 dark:bg-gray-800 rounded-xl" />
-        <div className="flex-1">
-          <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-3/4 mb-2" />
-          <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-1/2" />
+  /* Document Row (List) - Fixed for no horizontal scrolling */
+  const DocumentRow = ({ doc }: { doc: Document }) => (
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+      <div className="flex flex-col md:flex-row md:items-center gap-4">
+        {/* LEFT: Document Info */}
+        <div className="flex items-center gap-4 min-w-0 flex-grow">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <FileText className="w-5 h-5 text-white" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+              {doc.title}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+              {doc.file_name}
+            </p>
+          </div>
         </div>
-      </div>
-      <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-full mb-2" />
-      <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-2/3 mb-4" />
-      <div className="flex gap-2">
-        <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded-xl w-28" />
-        <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded-xl w-28" />
+
+        {/* RIGHT: Status, Meta, Actions */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-4 md:gap-6 w-full md:w-auto">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border ${getCategoryColor(
+                doc.category
+              )}`}
+            >
+              <FolderOpen className="w-3 h-3" />
+              {doc.category}
+            </span>
+            <button
+              onClick={() =>
+                toast.info(`Document visibility: ${doc.visibility}`)
+              }
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${getVisibilityColor(
+                doc.visibility
+              )}`}
+            >
+              {getVisibilityIcon(doc.visibility)}
+              {doc.visibility}
+            </button>
+            {doc.is_viewable_only ? (
+              <EyeOff className="w-5 h-5 text-amber-500" />
+            ) : (
+              <Eye className="w-5 h-5 text-emerald-500" />
+            )}
+          </div>
+
+          <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-col items-start md:items-end">
+            <span>Size: {formatFileSize(doc.file_size)}</span>
+            <span>
+              Updated: {format(new Date(doc.updated_at), "MMM dd, yyyy")}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => handlePreview(doc)}
+              className="inline-flex items-center justify-center gap-1.5 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <Eye className="w-4 h-4" />
+              View
+            </button>
+            {doc.is_viewable_only || user?.role === UserRole.CUSTOMER ? (
+              <div className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-sm font-medium rounded-lg border border-amber-200 dark:border-amber-800">
+                <Shield className="w-4 h-4" />
+                Protected
+              </div>
+            ) : (
+              <button
+                onClick={() => handleDownload(doc)}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Download
+              </button>
+            )}
+            {canEdit && (
+              <>
+                <button
+                  onClick={() => handleEdit(doc)}
+                  className="inline-flex items-center justify-center gap-1.5 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <Edit className="w-4 h-4" />
+                  Edit
+                </button>
+                {canDelete && (
+                  <button
+                    onClick={() =>
+                      setConfirmDialog({
+                        isOpen: true,
+                        documentId: doc.id,
+                        documentTitle: doc.title,
+                      })
+                    }
+                    className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
 
-  const docs = documents ?? [];
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      {/* Header */}
-      <div className="border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-950/80 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                Document Library
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">
-                Organize, manage, and collaborate on all your important
-                documents
-              </p>
-              <div className="flex items-center gap-6 mt-4 text-sm">
-                <div className="text-gray-600 dark:text-gray-400">
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">
-                    {docs.length}
-                  </span>
-                  <span className="ml-1">documents found</span>
-                </div>
-                <div className="text-gray-600 dark:text-gray-400">
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">
-                    {filters.search ||
-                      filters.category !== "all" ||
-                      filters.visibility !== "all"
-                      ? "Filtered"
-                      : "All"}
-                  </span>
-                  <span className="ml-1">results</span>
-                </div>
-                {isFetching && (
-                  <span className="text-xs text-gray-500">Refreshing…</span>
-                )}
+      {saving && <LoadingOverlay message="Saving your changes..." />}
+
+      {/* Header (auto-hide on scroll) */}
+      <div
+        className={`bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30 transition-transform duration-300 ease-out ${
+          headerHidden ? "-translate-y-full" : "translate-y-0"
+        }`}
+      >
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-5">
+          <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+                  Document Library
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                  {filteredDocuments.length} documents found
+                </p>
               </div>
             </div>
-            <Toolbar />
+
+            <div className="w-full lg:w-auto grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+              <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 border border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`h-9 sm:h-10 flex-1 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                    viewMode === "grid"
+                      ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  }`}
+                  aria-pressed={viewMode === "grid"}
+                  aria-label="Grid view"
+                >
+                  <Grid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`h-9 sm:h-10 flex-1 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                    viewMode === "list"
+                      ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  }`}
+                  aria-pressed={viewMode === "list"}
+                  aria-label="List view"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+
+              {canEdit && (
+                <button
+                  onClick={() => router.push(`/${user?.role}/documents/upload`)}
+                  className="inline-flex items-center justify-center gap-2 h-11 sm:h-12 px-4 sm:px-6 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all duration-200 shadow-sm"
+                >
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="text-sm sm:text-base">Upload</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div className="lg:col-span-6">
-              <label className="block text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">
-                Search Documents
-              </label>
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="search"
-                  value={filters.search}
-                  onChange={(e) =>
-                    setFilters((f) => ({
-                      ...f,
-                      search: e.target.value,
-                      page: 1,
-                    }))
-                  }
-                  placeholder="Search by title, description, filename..."
-                  className="w-full h-11 pl-10 pr-4 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-xl text-sm text-gray-900 dark:text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  aria-label="Search documents"
+      {/* Filters & Content */}
+      <main className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-6">
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 sm:p-5 mb-6">
+            <div className="flex items-start gap-4">
+              <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-red-900 dark:text-red-100">
+                  Error Occurred
+                </h3>
+                <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                  {error}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm mb-6 sm:mb-8">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+            <div className="flex items-center gap-3">
+              <Filter className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Search & Filter
+              </h2>
+            </div>
+          </div>
+          <div className="p-4 sm:p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="lg:col-span-1">
+                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                  Search Documents
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="search"
+                    placeholder="Search by title or filename..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full h-11 sm:h-12 pl-10 sm:pl-12 pr-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
+                    aria-label="Search documents"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                  Filter by Category
+                </label>
+                <ModernSelect
+                  value={categoryFilter}
+                  onChange={setCategoryFilter}
+                  options={categoryOptions}
+                  placeholder="All Categories"
+                  icon={FolderOpen}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                  Filter by Visibility
+                </label>
+                <ModernSelect
+                  value={visibilityFilter}
+                  onChange={setVisibilityFilter}
+                  options={visibilityOptions}
+                  placeholder="All Visibility"
+                  icon={Shield}
                 />
               </div>
             </div>
-
-            <div className="lg:col-span-3">
-              <ThemedSelect
-                label="Category"
-                value={filters.category}
-                onChange={(v) =>
-                  setFilters((f) => ({ ...f, category: v, page: 1 }))
-                }
-                options={categoryOptions}
-                placeholder="All Categories"
-                ariaLabel="Filter by category"
-              />
-            </div>
-
-            <div className="lg:col-span-3">
-              <ThemedSelect
-                label="Visibility"
-                value={filters.visibility}
-                onChange={(v) =>
-                  setFilters((f) => ({ ...f, visibility: v, page: 1 }))
-                }
-                options={visibilityOptions}
-                placeholder="All Visibility"
-                ariaLabel="Filter by visibility"
-              />
-            </div>
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-        {isLoading ? (
-          <div
-            className={
-              view === "grid"
-                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-                : "space-y-4"
-            }
-          >
-            {Array.from({ length: view === "grid" ? 9 : 6 }).map((_, i) => (
-              <LoadingCard key={i} />
-            ))}
-          </div>
-        ) : docs.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-24 h-24 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <FileText className="w-12 h-12 text-gray-400" />
+        {filteredDocuments.length === 0 ? (
+          <div className="text-center py-14 sm:py-16">
+            <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <FileText className="w-10 h-10 text-gray-400" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              No documents found
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              {debouncedSearch ||
+              categoryFilter !== "all" ||
+              visibilityFilter !== "all"
+                ? "No Matching Documents"
+                : "No Documents Yet"}
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
-              {filters.search ||
-                filters.category !== "all" ||
-                filters.visibility !== "all"
-                ? "Try adjusting your search or filters."
+            <p className="text-gray-600 dark:text-gray-400 mb-6 sm:text-base">
+              {debouncedSearch ||
+              categoryFilter !== "all" ||
+              visibilityFilter !== "all"
+                ? "Try adjusting your search or filter criteria."
                 : "Get started by uploading your first document."}
             </p>
-            {canEdit && (
-              <button
-                onClick={() => router.push(`/${user?.role}/documents/upload`)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors"
-              >
-                <Plus className="w-5 h-5" />
-                Upload Document
-              </button>
-            )}
+            {!debouncedSearch &&
+              categoryFilter === "all" &&
+              visibilityFilter === "all" &&
+              canEdit && (
+                <button
+                  onClick={() => router.push(`/${user?.role}/documents/upload`)}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  Upload First Document
+                </button>
+              )}
+          </div>
+        ) : viewMode === "grid" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+            {filteredDocuments.map((doc) => (
+              <DocumentCard key={doc.id} doc={doc} />
+            ))}
           </div>
         ) : (
-          <div
-            className={
-              view === "grid"
-                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-                : "space-y-4"
-            }
-          >
-            {docs.map((doc) =>
-              view === "grid" ? (
-                <DocumentCard key={doc.id} doc={doc} />
-              ) : (
-                <DocumentRow key={doc.id} doc={doc} />
-              )
-            )}
+          <div className="space-y-3 sm:space-y-4">
+            {filteredDocuments.map((doc) => (
+              <DocumentRow key={doc.id} doc={doc} />
+            ))}
           </div>
         )}
-      </div>
+      </main>
 
-      {/* Modals */}
-      <ConfirmModal
-        open={confirm.open}
+      {/* Confirm Delete */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() =>
+          setConfirmDialog({ isOpen: false, documentId: "", documentTitle: "" })
+        }
+        onConfirm={handleDeleteDocument}
         title="Delete Document"
-        message={`Are you sure you want to permanently delete "${confirm.title}"? This action cannot be undone.`}
-        onCancel={() => setConfirm({ open: false, id: "", title: "" })}
-        onConfirm={confirmDelete}
+        message={`Are you sure you want to permanently delete the document "${confirmDialog.documentTitle}"? This action cannot be undone.`}
       />
 
+      {/* Document Preview Modal */}
       <DocumentPreviewModal
-        isOpen={preview.open}
+        isOpen={previewModal.isOpen}
         onClose={() =>
-          setPreview({
-            open: false,
-            id: "",
-            title: "",
+          setPreviewModal({
+            isOpen: false,
+            documentId: "",
+            documentTitle: "",
             fileName: "",
-            mime: "",
+            mimeType: "",
             canDownload: false,
           })
         }
-        documentId={preview.id}
-        documentTitle={preview.title}
-        fileName={preview.fileName}
-        mimeType={preview.mime}
-        canDownload={preview.canDownload}
+        documentId={previewModal.documentId}
+        documentTitle={previewModal.documentTitle}
+        fileName={previewModal.fileName}
+        mimeType={previewModal.mimeType}
+        canDownload={previewModal.canDownload}
       />
     </div>
   );
