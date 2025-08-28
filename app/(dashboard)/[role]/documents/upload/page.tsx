@@ -12,7 +12,6 @@ import {
   Eye,
   EyeOff,
   Tag,
-  Info,
   Loader2,
   CheckCircle,
   AlertCircle,
@@ -170,14 +169,21 @@ export default function DocumentUploadPage() {
       );
 
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      let message = "Upload failed";
+      if (typeof error === "object" && error !== null && "response" in error) {
+        const maybeError = error as {
+          response?: { data?: { detail?: string } };
+        };
+        message = maybeError.response?.data?.detail ?? message;
+      }
       setUploadProgress((prev) =>
         prev.map((p, i) =>
           i === index
             ? {
                 ...p,
                 status: "error",
-                message: error.response?.data?.detail || "Upload failed",
+                message,
               }
             : p
         )

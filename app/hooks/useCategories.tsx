@@ -1,9 +1,16 @@
+// ./app/hooks/useCategories.tsx
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Category } from "@/types";
 import { useToast } from "@/contexts/ToastContext";
+import { AxiosError } from "axios";
+
+// Define error response type
+interface ErrorResponse {
+  detail?: string;
+}
 
 export function useCategories(includeInactive = false) {
   return useQuery<Category[]>({
@@ -36,8 +43,10 @@ export function useCreateCategory() {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
       toast.success("Category created successfully");
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Failed to create category");
+    onError: (error: AxiosError<ErrorResponse>) => {
+      const errorMessage =
+        error.response?.data?.detail || "Failed to create category";
+      toast.error(errorMessage);
     },
   });
 }
@@ -67,8 +76,10 @@ export function useUpdateCategory() {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
       toast.success("Category updated successfully");
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Failed to update category");
+    onError: (error: AxiosError<ErrorResponse>) => {
+      const errorMessage =
+        error.response?.data?.detail || "Failed to update category";
+      toast.error(errorMessage);
     },
   });
 }
@@ -85,8 +96,10 @@ export function useDeleteCategory() {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
       toast.success("Category deleted successfully");
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Failed to delete category");
+    onError: (error: AxiosError<ErrorResponse>) => {
+      const errorMessage =
+        error.response?.data?.detail || "Failed to delete category";
+      toast.error(errorMessage);
     },
   });
 }

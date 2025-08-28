@@ -269,7 +269,7 @@ const SearchableMultiSelect = ({
                 <div className="p-8 text-center">
                   <Search className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    No users found matching "{searchQuery}"
+                    No users found matching &quot;{searchQuery}&quot;
                   </p>
                 </div>
               ) : (
@@ -557,8 +557,8 @@ export default function EditDocumentPage() {
             Document Not Found
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
-            The document you're looking for doesn't exist or may have been
-            removed from the system.
+            The document you&apos;re looking for doesn&apos;t exist or may have
+            been removed from the system.
           </p>
           <button
             onClick={() => router.push(`/${user?.role}/documents`)}

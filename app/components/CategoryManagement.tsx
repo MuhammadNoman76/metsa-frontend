@@ -5,12 +5,10 @@ import {
   FolderPlus,
   Edit2,
   Trash2,
-  X,
   Check,
   AlertCircle,
   Loader2,
   Shield,
-  Palette,
   FileText,
   Package,
   Settings,
@@ -435,8 +433,8 @@ export default function CategoryManagement() {
                   Delete Category
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  Are you sure you want to delete "{deleteConfirm.label}"? This
-                  action cannot be undone.
+                  Are you sure you want to delete &quot;{deleteConfirm.label}
+                  &quot;? This action cannot be undone.
                 </p>
               </div>
             </div>

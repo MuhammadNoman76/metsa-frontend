@@ -22,20 +22,12 @@ import {
   Shield,
   EyeOff,
   Check,
-  Loader2,
   AlertCircle,
   Filter,
-  CheckCircle,
-  XCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import api from "@/lib/api";
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-  keepPreviousData,
-} from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Document, DocumentVisibility, UserRole } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
 import DocumentPreviewModal from "@/components/DocumentPreviewModal";
