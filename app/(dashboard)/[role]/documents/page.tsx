@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ElementType, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -359,16 +359,7 @@ export default function DocumentsPage() {
     canDownload: false,
   });
 
-  useEffect(
-    () => {
-      fetchDocuments();
-    },
-    [
-      /* mount */
-    ]
-  );
-
-  const fetchDocuments = async () => {
+  const fetchDocuments = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -389,14 +380,12 @@ export default function DocumentsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [debouncedSearch, categoryFilter, visibilityFilter]);
 
-  // Refetch when filters change
+  // Fetch on mount and whenever filters/search change
   useEffect(() => {
-    if (!loading) {
-      fetchDocuments();
-    }
-  }, [debouncedSearch, categoryFilter, visibilityFilter, loading]);
+    fetchDocuments();
+  }, [fetchDocuments]);
 
   const handleDeleteDocument = async () => {
     try {
