@@ -26,7 +26,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import api from "@/lib/api";
-import { Document, DocumentVisibility, User } from "@/types";
+import { Document, DocumentVisibility, User, UserRole } from "@/types";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useToast } from "@/contexts/ToastContext";
 import SimpleLoading from "@/components/SimpleLoading";
@@ -428,9 +428,11 @@ export default function EditDocumentPage() {
 
   const fetchCustomers = async () => {
     try {
-      const response = await api.get("/users?role=customer");
+      const response = await api.get<User[]>("/users", {
+        params: { role: UserRole.CUSTOMER, status: "approved" },
+      });
       setCustomers(response.data);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching customers:", error);
     }
   };

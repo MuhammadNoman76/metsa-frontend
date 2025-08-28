@@ -22,6 +22,8 @@ import {
   Loader2,
   Grid,
   List,
+  Key,
+  Lock,
 } from "lucide-react";
 import api from "@/lib/api";
 import { User, UserRole } from "@/types";
@@ -360,6 +362,8 @@ export default function UsersManagementPage() {
   // Create/Edit modals
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isPasswordChangeDialogOpen, setIsPasswordChangeDialogOpen] =
+    useState(false);
 
   // Confirm delete
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -370,9 +374,13 @@ export default function UsersManagementPage() {
 
   // Selection
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [passwordChangeUser, setPasswordChangeUser] = useState<User | null>(
+    null
+  );
 
   // Forms
   const [showPassword, setShowPassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
   const [newUser, setNewUser] = useState({
     username: "",
     email: "",
@@ -384,6 +392,8 @@ export default function UsersManagementPage() {
     email: "",
     role: UserRole.CUSTOMER,
     is_active: true,
+    password: "", // Added password field
+    changePassword: false, // Track if password should be changed
   });
 
   useEffect(() => {
@@ -441,8 +451,16 @@ export default function UsersManagementPage() {
       email: user.email,
       role: user.role,
       is_active: user.is_active,
+      password: "",
+      changePassword: false,
     });
+    setShowEditPassword(false);
     setIsEditDialogOpen(true);
+  };
+
+  const handlePasswordChangeClick = (user: User) => {
+    setPasswordChangeUser(user);
+    setIsPasswordChangeDialogOpen(true);
   };
 
   const handleUpdateUser = async (e: React.FormEvent) => {
@@ -461,7 +479,20 @@ export default function UsersManagementPage() {
 
     setSaving(true);
     try {
-      await api.put(`/users/${selectedUser.id}`, editUser);
+      // Prepare update data
+      const updateData: any = {
+        username: editUser.username,
+        email: editUser.email,
+        role: editUser.role,
+        is_active: editUser.is_active,
+      };
+
+      // Only include password if it's being changed
+      if (editUser.changePassword && editUser.password) {
+        updateData.password = editUser.password;
+      }
+
+      await api.put(`/users/${selectedUser.id}`, updateData);
       toast.success("User updated successfully");
       setIsEditDialogOpen(false);
       setSelectedUser(null);
@@ -563,7 +594,7 @@ export default function UsersManagementPage() {
 
   if (loading) return <SimpleLoading message="Loading..." fullScreen />;
 
-  /* User Card (Grid) - Updated with super admin protection */
+  /* User Card (Grid) - Updated with password change button */
   const UserCard = ({ user }: { user: User }) => (
     <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 sm:p-5 flex flex-col gap-4">
       <div className="flex items-start justify-between gap-4">
@@ -646,9 +677,9 @@ export default function UsersManagementPage() {
           <>
             <button
               onClick={() => handleEditClick(user)}
-              className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
             >
-              <Edit className="w-4 h-4" />
+              <Edit className="w-3.5 h-3.5" />
               Edit
             </button>
             <button
@@ -659,9 +690,9 @@ export default function UsersManagementPage() {
                   username: user.username,
                 })
               }
-              className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-3.5 h-3.5" />
               Delete
             </button>
           </>
@@ -669,13 +700,13 @@ export default function UsersManagementPage() {
           <>
             <button
               onClick={() => handleEditClick(user)}
-              className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
             >
-              <Edit className="w-4 h-4" />
-              Edit Profile
+              <Edit className="w-3.5 h-3.5" />
+              Edit
             </button>
             <div className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-400 text-sm font-medium rounded-lg border border-purple-200 dark:border-purple-800">
-              <Shield className="w-4 h-4" />
+              <Shield className="w-3.5 h-3.5" />
               Protected
             </div>
           </>
@@ -689,7 +720,7 @@ export default function UsersManagementPage() {
     </div>
   );
 
-  /* User Row (List) - Updated with super admin protection */
+  /* User Row (List) - Updated with password change button */
   const UserRow = ({ user }: { user: User }) => (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
       {/* LEFT: User Info */}
@@ -772,10 +803,17 @@ export default function UsersManagementPage() {
             <>
               <button
                 onClick={() => handleEditClick(user)}
-                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 <Edit className="w-4 h-4" />
                 Edit
+              </button>
+              <button
+                onClick={() => handlePasswordChangeClick(user)}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <Key className="w-4 h-4" />
+                Password
               </button>
               <button
                 onClick={() =>
@@ -785,7 +823,7 @@ export default function UsersManagementPage() {
                     username: user.username,
                   })
                 }
-                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
                 Delete
@@ -795,10 +833,17 @@ export default function UsersManagementPage() {
             <>
               <button
                 onClick={() => handleEditClick(user)}
-                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 <Edit className="w-4 h-4" />
-                Edit Profile
+                Edit
+              </button>
+              <button
+                onClick={() => handlePasswordChangeClick(user)}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <Key className="w-4 h-4" />
+                Password
               </button>
               <div className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-400 text-sm font-medium rounded-lg border border-purple-200 dark:border-purple-800">
                 <Shield className="w-4 h-4" />
@@ -983,7 +1028,7 @@ export default function UsersManagementPage() {
         )}
       </main>
 
-      {/* Create User Modal - Updated with role restrictions */}
+      {/* Create User Modal - No changes needed */}
       <ModernModal
         isOpen={isCreateDialogOpen}
         onClose={() => setIsCreateDialogOpen(false)}
@@ -1127,7 +1172,7 @@ export default function UsersManagementPage() {
         </form>
       </ModernModal>
 
-      {/* Edit User Modal - Updated with restrictions for super admin */}
+      {/* Edit User Modal - Updated with optional password change */}
       <ModernModal
         isOpen={isEditDialogOpen}
         onClose={() => setIsEditDialogOpen(false)}
@@ -1231,6 +1276,65 @@ export default function UsersManagementPage() {
               </p>
             </div>
           )}
+
+          {/* Password Change Toggle Section */}
+          <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+            <ModernToggle
+              checked={editUser.changePassword}
+              onChange={(checked) => {
+                setEditUser({
+                  ...editUser,
+                  changePassword: checked,
+                  password: "",
+                });
+                if (!checked) setShowEditPassword(false);
+              }}
+              label="Change Password"
+              description="Set a new password for this user."
+            />
+
+            {editUser.changePassword && (
+              <div className="mt-4 space-y-2">
+                <label
+                  htmlFor="edit-password"
+                  className="block text-sm font-semibold text-gray-900 dark:text-white"
+                >
+                  New Password<span className="text-red-500 ml-1">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    id="edit-password"
+                    type={showEditPassword ? "text" : "password"}
+                    value={editUser.password}
+                    onChange={(e) =>
+                      setEditUser({ ...editUser, password: e.target.value })
+                    }
+                    placeholder="Enter new password"
+                    required={editUser.changePassword}
+                    minLength={editUser.changePassword ? 6 : undefined}
+                    className="w-full h-11 sm:h-12 px-4 pr-12 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditPassword((s) => !s)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    aria-label={
+                      showEditPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showEditPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Minimum 6 characters required
+                </p>
+              </div>
+            )}
+          </div>
 
           <div className="flex flex-col sm:flex-row-reverse gap-3 pt-2">
             <button

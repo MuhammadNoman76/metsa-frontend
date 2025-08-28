@@ -12,13 +12,13 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark"); // Default to dark
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("dark");
+  const [theme, setThemeState] = useState<Theme>("light"); // Changed to light
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light"); // Changed to light
   const [mounted, setMounted] = useState(false);
 
   // Get system theme
   const getSystemTheme = (): "light" | "dark" => {
-    if (typeof window === "undefined") return "dark";
+    if (typeof window === "undefined") return "light"; // Changed fallback to light
     return window.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
       : "light";
@@ -61,8 +61,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setResolvedTheme(resolved);
     };
 
-    // Get saved theme or default to dark
-    const savedTheme = (localStorage.getItem("theme") as Theme) || "dark";
+    // Get saved theme or default to light
+    const savedTheme = (localStorage.getItem("theme") as Theme) || "light"; // Changed default to light
     setThemeState(savedTheme);
     applyTheme(savedTheme);
     setMounted(true);
