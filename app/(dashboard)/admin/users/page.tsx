@@ -396,7 +396,7 @@ export default function UsersManagementPage() {
     try {
       const response = await api.get("/users");
       setUsers(response.data);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error fetching users:", err);
       setError("Failed to load users. Please try again.");
     } finally {
@@ -425,9 +425,10 @@ export default function UsersManagementPage() {
         role: UserRole.CUSTOMER,
       });
       await fetchUsers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error creating user:", err);
-      toast.error(err.response?.data?.detail || "Error creating user");
+      const error = err as { response?: { data?: { detail?: string } } };
+      toast.error(error.response?.data?.detail || "Error creating user");
     } finally {
       setSaving(false);
     }
@@ -465,9 +466,10 @@ export default function UsersManagementPage() {
       setIsEditDialogOpen(false);
       setSelectedUser(null);
       await fetchUsers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating user:", err);
-      toast.error(err.response?.data?.detail || "Error updating user");
+      const error = err as { response?: { data?: { detail?: string } } };
+      toast.error(error.response?.data?.detail || "Error updating user");
     } finally {
       setSaving(false);
     }
@@ -480,9 +482,12 @@ export default function UsersManagementPage() {
         `User ${!currentStatus ? "activated" : "deactivated"} successfully`
       );
       await fetchUsers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating user status:", err);
-      toast.error(err.response?.data?.detail || "Failed to update user status");
+      const error = err as { response?: { data?: { detail?: string } } };
+      toast.error(
+        error.response?.data?.detail || "Failed to update user status"
+      );
     }
   };
 
@@ -492,9 +497,10 @@ export default function UsersManagementPage() {
       toast.success("User deleted successfully");
       setConfirmDialog({ isOpen: false, userId: "", username: "" });
       await fetchUsers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error deleting user:", err);
-      toast.error(err.response?.data?.detail || "Error deleting user");
+      const error = err as { response?: { data?: { detail?: string } } };
+      toast.error(error.response?.data?.detail || "Error deleting user");
     }
   };
 
