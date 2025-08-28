@@ -4,15 +4,8 @@ export enum UserRole {
   CUSTOMER = "customer",
 }
 
-export enum DocumentCategory {
-  COMMERCIAL = "commercial",
-  QUALITY = "quality",
-  SAFETY = "safety",
-  COMPLIANCE = "compliance",
-  CONTRACTS = "contracts",
-  SPECIFICATIONS = "specifications",
-  OTHER = "other",
-}
+// Remove the enum and use string type instead
+export type DocumentCategory = string;
 
 export enum DocumentVisibility {
   PUBLIC = "public",
@@ -33,6 +26,20 @@ export interface CustomerInfo {
   [key: string]: string | undefined;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  label: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  is_active: boolean;
+  is_default: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -42,7 +49,7 @@ export interface User {
   customer_info?: CustomerInfo;
   is_active: boolean;
   is_verified: boolean;
-  is_super_admin?: boolean; // ADD THIS
+  is_super_admin?: boolean;
   approval_status?: ApprovalStatus;
   approved_by?: string | null;
   approved_at?: string | null;
@@ -56,7 +63,7 @@ export interface Document {
   id: string;
   title: string;
   description?: string;
-  category: DocumentCategory;
+  category: string; // Changed from DocumentCategory enum to string
   visibility: DocumentVisibility;
   is_viewable_only: boolean;
   assigned_customers: string[];

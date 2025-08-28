@@ -13,9 +13,11 @@ import {
   Moon,
   Monitor,
   Check,
+  FolderCog,
 } from "lucide-react";
 import api from "@/lib/api";
 import { UserRole } from "@/types";
+import CategoryManagement from "@/components/CategoryManagement";
 
 // Define notification settings type
 type NotificationKey =
@@ -93,11 +95,15 @@ export default function SettingsPage() {
     }
   };
 
+  // Add Categories tab only for super admin
   const tabs = [
     { id: "profile", label: "Profile", icon: User },
     { id: "security", label: "Security", icon: Lock },
     { id: "appearance", label: "Appearance", icon: Sun },
     { id: "notifications", label: "Notifications", icon: Bell },
+    ...(user?.is_super_admin
+      ? [{ id: "categories", label: "Categories", icon: FolderCog }]
+      : []),
     ...(user?.role === UserRole.ADMIN
       ? [{ id: "system", label: "System", icon: Settings }]
       : []),
@@ -246,6 +252,7 @@ export default function SettingsPage() {
                           <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                           <span className="font-medium text-gray-900 dark:text-white">
                             {user?.role}
+                            {user?.is_super_admin && " (Super Admin)"}
                           </span>
                         </div>
                         <div className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium rounded-full">
@@ -539,6 +546,25 @@ export default function SettingsPage() {
                         Save Preferences
                       </button>
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Categories Tab - Only for Super Admin */}
+            {activeTab === "categories" && user?.is_super_admin && (
+              <div className="space-y-6">
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800">
+                  <div className="p-6 border-b border-gray-200 dark:border-gray-800">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                      Category Management
+                    </h2>
+                    <p className="text-gray-600 dark:text-gray-400 mt-1">
+                      Configure document categories and organization
+                    </p>
+                  </div>
+                  <div className="p-6">
+                    <CategoryManagement />
                   </div>
                 </div>
               </div>

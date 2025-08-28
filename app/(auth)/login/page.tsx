@@ -50,7 +50,6 @@ export default function LoginPage() {
     try {
       // The login function will accept either username or email
       await login(usernameOrEmail, password);
-      toast.success("Signed in successfully");
     } catch (err) {
       const axiosErr = err as {
         response?: { data?: { detail?: string }; status?: number };

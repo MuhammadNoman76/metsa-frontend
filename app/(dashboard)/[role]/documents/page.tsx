@@ -1,5 +1,3 @@
-// app\(dashboard)\[role]\documents\page.tsx
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -38,17 +36,13 @@ import {
   useQueryClient,
   keepPreviousData,
 } from "@tanstack/react-query";
-import {
-  Document,
-  DocumentCategory,
-  DocumentVisibility,
-  UserRole,
-} from "@/types";
+import { Document, DocumentVisibility, UserRole } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
 import DocumentPreviewModal from "@/components/DocumentPreviewModal";
 import { useToast } from "@/contexts/ToastContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SimpleLoading from "@/components/SimpleLoading";
+import { useCategories } from "@/hooks/useCategories";
 
 /* Hook: auto-hide on scroll (down hides, up shows) */
 function useAutoHideHeader(offsetPx = 24, minDelta = 6) {
@@ -288,26 +282,6 @@ const getVisibilityColor = (visibility: string) => {
   }
 };
 
-const getCategoryColor = (category: string) => {
-  const map: Record<string, string> = {
-    commercial:
-      "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800",
-    quality:
-      "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
-    safety:
-      "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800",
-    compliance:
-      "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800",
-    contracts:
-      "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800",
-    specifications:
-      "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800",
-    other:
-      "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700",
-  };
-  return map[category] || map.other;
-};
-
 const getVisibilityIcon = (visibility: string) => {
   switch (visibility) {
     case "public":
@@ -340,6 +314,7 @@ export default function DocumentsPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const { user } = useAuth();
+  const { data: categories, isLoading: categoriesLoading } = useCategories();
 
   // State
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -486,15 +461,40 @@ export default function DocumentsPage() {
     user?.role === UserRole.ADMIN || user?.role === UserRole.EDITOR;
   const canDelete = user?.role === UserRole.ADMIN;
 
+  // Get category color based on dynamic categories
+  const getCategoryColor = (categoryName: string) => {
+    const category = categories?.find((cat) => cat.name === categoryName);
+    if (!category)
+      return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700";
+
+    const colorMap: Record<string, string> = {
+      blue: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800",
+      emerald:
+        "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
+      red: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800",
+      purple:
+        "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800",
+      amber:
+        "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800",
+      indigo:
+        "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800",
+      gray: "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700",
+    };
+
+    return colorMap[category.color || "gray"] || colorMap.gray;
+  };
+
   const categoryOptions = useMemo(
     () => [
       { value: "all", label: "All Categories" },
-      ...Object.values(DocumentCategory).map((cat) => ({
-        value: cat,
-        label: cat.charAt(0).toUpperCase() + cat.slice(1),
-      })),
+      ...(categories
+        ?.filter((cat) => cat.is_active)
+        .map((cat) => ({
+          value: cat.name,
+          label: cat.label,
+        })) || []),
     ],
-    []
+    [categories]
   );
 
   const visibilityOptions = useMemo(
@@ -524,7 +524,13 @@ export default function DocumentsPage() {
     });
   }, [documents, debouncedSearch, categoryFilter, visibilityFilter]);
 
-  if (loading) return <SimpleLoading message="Loading..." fullScreen />;
+  if (loading || categoriesLoading)
+    return <SimpleLoading message="Loading..." fullScreen />;
+
+  const getCategoryLabel = (categoryName: string) => {
+    const category = categories?.find((cat) => cat.name === categoryName);
+    return category?.label || categoryName;
+  };
 
   /* Document Card (Grid) */
   const DocumentCard = ({ doc }: { doc: Document }) => (
@@ -557,7 +563,7 @@ export default function DocumentsPage() {
           )}`}
         >
           <FolderOpen className="w-3 h-3" />
-          {doc.category}
+          {getCategoryLabel(doc.category)}
         </span>
         <button
           onClick={() => toast.info(`Document visibility: ${doc.visibility}`)}
@@ -628,7 +634,7 @@ export default function DocumentsPage() {
     </div>
   );
 
-  /* Document Row (List) - Fixed for no horizontal scrolling */
+  /* Document Row (List) */
   const DocumentRow = ({ doc }: { doc: Document }) => (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
       <div className="flex flex-col md:flex-row md:items-center gap-4">
@@ -656,7 +662,7 @@ export default function DocumentsPage() {
               )}`}
             >
               <FolderOpen className="w-3 h-3" />
-              {doc.category}
+              {getCategoryLabel(doc.category)}
             </span>
             <button
               onClick={() =>
