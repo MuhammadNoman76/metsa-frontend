@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
-import { User, UserRole, ApprovalStatus } from "@/types";
+import { User, UserRole } from "@/types";
 import { format } from "date-fns";
 import SimpleLoading from "@/components/SimpleLoading";
 import {
@@ -252,12 +252,7 @@ export default function ApprovalsPage() {
     }
   }, [user, router]);
 
-  // Fetch pending users
-  useEffect(() => {
-    fetchPendingUsers();
-  }, []);
-
-  const fetchPendingUsers = async () => {
+  const fetchPendingUsers = useCallback(async () => {
     setLoading(true);
     try {
       const response = await api.get("/users/pending");
@@ -268,7 +263,12 @@ export default function ApprovalsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  // Fetch pending users
+  useEffect(() => {
+    fetchPendingUsers();
+  }, [fetchPendingUsers]);
 
   const handleApprove = async () => {
     if (!selectedUser) return;

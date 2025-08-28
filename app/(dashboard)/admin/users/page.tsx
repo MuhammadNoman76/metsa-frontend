@@ -22,8 +22,6 @@ import {
   Loader2,
   Grid,
   List,
-  Key,
-  Lock,
 } from "lucide-react";
 import api from "@/lib/api";
 import { User, UserRole } from "@/types";
@@ -362,8 +360,6 @@ export default function UsersManagementPage() {
   // Create/Edit modals
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isPasswordChangeDialogOpen, setIsPasswordChangeDialogOpen] =
-    useState(false);
 
   // Confirm delete
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -374,9 +370,6 @@ export default function UsersManagementPage() {
 
   // Selection
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [passwordChangeUser, setPasswordChangeUser] = useState<User | null>(
-    null
-  );
 
   // Forms
   const [showPassword, setShowPassword] = useState(false);
@@ -458,11 +451,6 @@ export default function UsersManagementPage() {
     setIsEditDialogOpen(true);
   };
 
-  const handlePasswordChangeClick = (user: User) => {
-    setPasswordChangeUser(user);
-    setIsPasswordChangeDialogOpen(true);
-  };
-
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
@@ -480,7 +468,13 @@ export default function UsersManagementPage() {
     setSaving(true);
     try {
       // Prepare update data
-      const updateData: any = {
+      const updateData: {
+        username: string;
+        email: string;
+        role: UserRole;
+        is_active: boolean;
+        password?: string;
+      } = {
         username: editUser.username,
         email: editUser.email,
         role: editUser.role,
@@ -808,13 +802,7 @@ export default function UsersManagementPage() {
                 <Edit className="w-4 h-4" />
                 Edit
               </button>
-              <button
-                onClick={() => handlePasswordChangeClick(user)}
-                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              >
-                <Key className="w-4 h-4" />
-                Password
-              </button>
+
               <button
                 onClick={() =>
                   setConfirmDialog({
@@ -838,13 +826,7 @@ export default function UsersManagementPage() {
                 <Edit className="w-4 h-4" />
                 Edit
               </button>
-              <button
-                onClick={() => handlePasswordChangeClick(user)}
-                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              >
-                <Key className="w-4 h-4" />
-                Password
-              </button>
+
               <div className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-400 text-sm font-medium rounded-lg border border-purple-200 dark:border-purple-800">
                 <Shield className="w-4 h-4" />
                 Protected

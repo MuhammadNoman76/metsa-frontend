@@ -12,7 +12,6 @@ import {
   X,
   ChevronDown,
   Eye,
-  EyeOff,
   Tag,
   Info,
   Loader2,
@@ -404,10 +403,20 @@ export default function DocumentUploadPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
+  const fetchCustomers = useCallback(async () => {
+    try {
+      const response = await api.get("/users?role=customer&status=approved");
+      setCustomers(response.data);
+    } catch (error) {
+      console.error("Error fetching customers:", error);
+      toast.error("Failed to load customer list");
+    }
+  }, [toast]);
+
   // Fetch customers on mount
   useEffect(() => {
     fetchCustomers();
-  }, []);
+  }, [fetchCustomers]);
 
   // Set default category when categories load
   useEffect(() => {
@@ -417,16 +426,6 @@ export default function DocumentUploadPage() {
       setFormData((prev) => ({ ...prev, category: defaultCategory.name }));
     }
   }, [categories, formData.category]);
-
-  const fetchCustomers = async () => {
-    try {
-      const response = await api.get("/users?role=customer&status=approved");
-      setCustomers(response.data);
-    } catch (error) {
-      console.error("Error fetching customers:", error);
-      toast.error("Failed to load customer list");
-    }
-  };
 
   const categoryOptions = useMemo(() => {
     if (!categories) return [];
@@ -579,7 +578,7 @@ export default function DocumentUploadPage() {
       );
 
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Upload error:", error);
       setUploadProgress((prev) =>
         prev.map((p, i) =>
@@ -587,7 +586,9 @@ export default function DocumentUploadPage() {
             ? {
                 ...p,
                 status: "error",
-                message: error.response?.data?.detail || "Upload failed",
+                message:
+                  (error as { response?: { data?: { detail?: string } } })
+                    .response?.data?.detail || "Upload failed",
               }
             : p
         )

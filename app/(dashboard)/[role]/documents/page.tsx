@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ElementType, ReactNode } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   FileText,
   Download,
@@ -27,7 +27,6 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import api from "@/lib/api";
-import { useQueryClient } from "@tanstack/react-query";
 import { Document, DocumentVisibility, UserRole } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
 import DocumentPreviewModal from "@/components/DocumentPreviewModal";
@@ -302,8 +301,6 @@ const formatFileSize = (bytes: number) => {
 /* Main Page */
 export default function DocumentsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
   const toast = useToast();
   const { user } = useAuth();
   const { data: categories, isLoading: categoriesLoading } = useCategories();
@@ -362,9 +359,14 @@ export default function DocumentsPage() {
     canDownload: false,
   });
 
-  useEffect(() => {
-    fetchDocuments();
-  }, []);
+  useEffect(
+    () => {
+      fetchDocuments();
+    },
+    [
+      /* mount */
+    ]
+  );
 
   const fetchDocuments = async () => {
     setLoading(true);
@@ -394,7 +396,7 @@ export default function DocumentsPage() {
     if (!loading) {
       fetchDocuments();
     }
-  }, [debouncedSearch, categoryFilter, visibilityFilter]);
+  }, [debouncedSearch, categoryFilter, visibilityFilter, loading]);
 
   const handleDeleteDocument = async () => {
     try {
