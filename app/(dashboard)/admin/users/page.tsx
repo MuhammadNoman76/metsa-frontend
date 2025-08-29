@@ -22,6 +22,8 @@ import {
   Loader2,
   Grid,
   List,
+  RefreshCw,
+  KeyRound,
 } from "lucide-react";
 import api from "@/lib/api";
 import { User, UserRole } from "@/types";
@@ -326,6 +328,53 @@ const getRoleColor = (role: UserRole) => {
   }
 };
 
+/* Generate strong random password */
+const generateStrongPassword = () => {
+  const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const lowercase = "abcdefghijklmnopqrstuvwxyz";
+  const numbers = "0123456789";
+  const symbols = "!@#$%^&*()_+-=[]{}|;:,.<>?";
+  const allChars = uppercase + lowercase + numbers + symbols;
+
+  let password = "";
+
+  // Ensure at least one character from each category
+  password += uppercase[Math.floor(Math.random() * uppercase.length)];
+  password += lowercase[Math.floor(Math.random() * lowercase.length)];
+  password += numbers[Math.floor(Math.random() * numbers.length)];
+  password += symbols[Math.floor(Math.random() * symbols.length)];
+
+  // Fill the rest randomly (12-16 characters total)
+  const targetLength = 12 + Math.floor(Math.random() * 5); // 12-16 chars
+  for (let i = password.length; i < targetLength; i++) {
+    password += allChars[Math.floor(Math.random() * allChars.length)];
+  }
+
+  // Shuffle the password to avoid predictable patterns
+  return password
+    .split("")
+    .sort(() => Math.random() - 0.5)
+    .join("");
+};
+
+/* Validate password strength */
+const validatePasswordStrength = (password: string) => {
+  if (password.length < 8)
+    return { valid: false, message: "Password must be at least 8 characters" };
+  if (!/[A-Z]/.test(password))
+    return { valid: false, message: "Password must contain uppercase letters" };
+  if (!/[a-z]/.test(password))
+    return { valid: false, message: "Password must contain lowercase letters" };
+  if (!/[0-9]/.test(password))
+    return { valid: false, message: "Password must contain numbers" };
+  if (!/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(password))
+    return {
+      valid: false,
+      message: "Password must contain special characters",
+    };
+  return { valid: true, message: "Strong password" };
+};
+
 export default function UsersManagementPage() {
   const { user: currentUser } = useAuth();
   const toast = useToast();
@@ -410,6 +459,13 @@ export default function UsersManagementPage() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validate password strength
+    const passwordValidation = validatePasswordStrength(newUser.password);
+    if (!passwordValidation.valid) {
+      toast.error(passwordValidation.message);
+      return;
+    }
+
     // Check if trying to create admin without being super admin
     if (newUser.role === UserRole.ADMIN && !currentUser?.is_super_admin) {
       toast.error("Only super admin can create admin users");
@@ -454,6 +510,15 @@ export default function UsersManagementPage() {
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
+
+    // Validate password strength if changing password
+    if (editUser.changePassword) {
+      const passwordValidation = validatePasswordStrength(editUser.password);
+      if (!passwordValidation.valid) {
+        toast.error(passwordValidation.message);
+        return;
+      }
+    }
 
     // Check role change permissions
     if (
@@ -1071,12 +1136,27 @@ export default function UsersManagementPage() {
           </div>
 
           <div className="space-y-2">
-            <label
-              htmlFor="password"
-              className="block text-sm font-semibold text-gray-900 dark:text-white"
-            >
-              Password<span className="text-red-500 ml-1">*</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="password"
+                className="block text-sm font-semibold text-gray-900 dark:text-white"
+              >
+                Password<span className="text-red-500 ml-1">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  const generatedPassword = generateStrongPassword();
+                  setNewUser({ ...newUser, password: generatedPassword });
+                  setShowPassword(true);
+                  toast.success("Strong password generated!");
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Generate Strong Password
+              </button>
+            </div>
             <div className="relative">
               <input
                 id="password"
@@ -1085,9 +1165,17 @@ export default function UsersManagementPage() {
                 onChange={(e) =>
                   setNewUser({ ...newUser, password: e.target.value })
                 }
-                placeholder="••••••••"
+                placeholder="Min 8 chars, uppercase, lowercase, numbers, symbols"
                 required
-                className="w-full h-11 sm:h-12 px-4 pr-12 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
+                className={`w-full h-11 sm:h-12 px-4 pr-12 bg-white dark:bg-gray-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm ${
+                  newUser.password &&
+                  !validatePasswordStrength(newUser.password).valid
+                    ? "border-red-500 dark:border-red-500"
+                    : newUser.password &&
+                      validatePasswordStrength(newUser.password).valid
+                    ? "border-green-500 dark:border-green-500"
+                    : "border-gray-300 dark:border-gray-600"
+                }`}
               />
               <button
                 type="button"
@@ -1102,6 +1190,22 @@ export default function UsersManagementPage() {
                 )}
               </button>
             </div>
+            {newUser.password && (
+              <div
+                className={`flex items-center gap-2 text-xs ${
+                  validatePasswordStrength(newUser.password).valid
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-red-600 dark:text-red-400"
+                }`}
+              >
+                {validatePasswordStrength(newUser.password).valid ? (
+                  <CheckCircle className="w-3.5 h-3.5" />
+                ) : (
+                  <XCircle className="w-3.5 h-3.5" />
+                )}
+                {validatePasswordStrength(newUser.password).message}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -1277,12 +1381,27 @@ export default function UsersManagementPage() {
 
             {editUser.changePassword && (
               <div className="mt-4 space-y-2">
-                <label
-                  htmlFor="edit-password"
-                  className="block text-sm font-semibold text-gray-900 dark:text-white"
-                >
-                  New Password<span className="text-red-500 ml-1">*</span>
-                </label>
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="edit-password"
+                    className="block text-sm font-semibold text-gray-900 dark:text-white"
+                  >
+                    New Password<span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const generatedPassword = generateStrongPassword();
+                      setEditUser({ ...editUser, password: generatedPassword });
+                      setShowEditPassword(true);
+                      toast.success("Strong password generated!");
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Generate
+                  </button>
+                </div>
                 <div className="relative">
                   <input
                     id="edit-password"
@@ -1291,10 +1410,17 @@ export default function UsersManagementPage() {
                     onChange={(e) =>
                       setEditUser({ ...editUser, password: e.target.value })
                     }
-                    placeholder="Enter new password"
+                    placeholder="Min 8 chars, uppercase, lowercase, numbers, symbols"
                     required={editUser.changePassword}
-                    minLength={editUser.changePassword ? 6 : undefined}
-                    className="w-full h-11 sm:h-12 px-4 pr-12 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
+                    className={`w-full h-11 sm:h-12 px-4 pr-12 bg-white dark:bg-gray-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm ${
+                      editUser.password &&
+                      !validatePasswordStrength(editUser.password).valid
+                        ? "border-red-500 dark:border-red-500"
+                        : editUser.password &&
+                          validatePasswordStrength(editUser.password).valid
+                        ? "border-green-500 dark:border-green-500"
+                        : "border-gray-300 dark:border-gray-600"
+                    }`}
                   />
                   <button
                     type="button"
@@ -1311,9 +1437,22 @@ export default function UsersManagementPage() {
                     )}
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Minimum 6 characters required
-                </p>
+                {editUser.password && (
+                  <div
+                    className={`flex items-center gap-2 text-xs ${
+                      validatePasswordStrength(editUser.password).valid
+                        ? "text-green-600 dark:text-green-400"
+                        : "text-red-600 dark:text-red-400"
+                    }`}
+                  >
+                    {validatePasswordStrength(editUser.password).valid ? (
+                      <CheckCircle className="w-3.5 h-3.5" />
+                    ) : (
+                      <XCircle className="w-3.5 h-3.5" />
+                    )}
+                    {validatePasswordStrength(editUser.password).message}
+                  </div>
+                )}
               </div>
             )}
           </div>
