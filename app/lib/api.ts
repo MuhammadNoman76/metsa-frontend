@@ -3,7 +3,7 @@ import Cookies from "js-cookie";
 
 // In development, use the full URL. In production (static export), use relative paths
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+  process.env.NEXT_PUBLIC_API_URL || "https://backend.portal.metsa.com/api/v1";
 
 const api = axios.create({
   baseURL: API_BASE_URL,

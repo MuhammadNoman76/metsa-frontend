@@ -95,7 +95,7 @@ module.exports = nextConfig;
     "@radix-ui/react-toggle": "^1.1.10",
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
-    "@tanstack/react-query": "^5.85.3",
+    "@tanstack/react-query": "^5.85.5",
     "axios": "^1.10.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -237,6 +237,13 @@ module.exports = {
   .dark {
     color-scheme: dark;
   }
+
+  /* Prevent horizontal scrolling on mobile */
+  html,
+  body {
+    overflow-x: hidden;
+    width: 100%;
+  }
 }
 
 /* Smooth transitions only after page loads */
@@ -267,16 +274,39 @@ html.mounted * {
   .react-pdf__Page {
     width: 100% !important;
   }
-  
+
   .react-pdf__Page__textContent {
     width: 100% !important;
   }
-  
+
   .react-pdf__Page__annotations {
     width: 100% !important;
   }
 }
 
+/* Ensure Word/Excel previews are responsive and do not overflow */
+.word-preview,
+.excel-preview {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.word-preview img,
+.excel-preview img {
+  max-width: 100%;
+  height: auto;
+}
+
+.excel-preview table {
+  width: 100% !important;
+  max-width: 100% !important;
+  border-collapse: collapse;
+}
+
+.excel-preview table td,
+.excel-preview table th {
+  word-break: break-word;
+}
 
 ```
 
@@ -294,8 +324,13 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Metsa Document Portal",
+  title: "Metsa Portal",
   description: "Your trusted partner for industrial solutions",
+  icons: {
+    icon: [{ url: "/metsa_logo.png", type: "image/png" }],
+    shortcut: [{ url: "/metsa_logo.png" }],
+    apple: [{ url: "/metsa_logo.png" }],
+  },
 };
 
 // Theme initialization script - default to dark
@@ -327,6 +362,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className="dark">
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <link rel="icon" type="image/png" href="/metsa_logo.png" />
+        <link rel="apple-touch-icon" href="/metsa_logo.png" />
       </head>
       <body
         className={`${inter.className} bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100`}
@@ -406,14 +443,19 @@ export default function RootPage() {
 export default function AuthLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center">
-      {children}
+    <div className="min-h-screen bg-white dark:bg-gray-950">
+      <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+        <div className="absolute left-0 right-0 -top-2 h-1 bg-gradient-to-r from-gray-200 via-[#1A8B47] to-gray-200 dark:from-gray-800 dark:via-[#1A8B47] dark:to-gray-800" />
+        {children}
+      </div>
     </div>
   );
 }
+
+//
 
 ```
 
@@ -446,7 +488,6 @@ import {
   ArrowRight,
   Sun,
   Moon,
-  Info,
   XCircle,
   Clock,
   UserPlus,
@@ -515,9 +556,12 @@ export default function LoginPage() {
         setError(friendly);
       }
 
-      if (errorType === "error") {
-        toast.error(error);
-      }
+      // Show a toast using the computed message immediately
+      const toastMsg =
+        typeof axiosErr?.response?.data?.detail === "string"
+          ? axiosErr.response?.data?.detail
+          : "Invalid credentials. Please check your username/email and password.";
+      toast.error(toastMsg);
     } finally {
       setIsLoading(false);
     }
@@ -594,73 +638,48 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center p-4 transition-colors duration-500">
-      {/* Enhanced METSA Background Pattern with geometric shapes */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Primary green gradient orbs */}
-        <div className="absolute top-10 right-20 w-96 h-96 bg-gradient-radial from-[#1A8B47]/30 via-[#1A8B47]/15 to-transparent rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 left-10 w-80 h-80 bg-gradient-radial from-[#4FBF7C]/25 via-[#4FBF7C]/10 to-transparent rounded-full blur-3xl"></div>
-        
-        {/* Secondary accent orbs */}
-        <div className="absolute top-1/2 left-1/4 w-64 h-64 bg-gradient-radial from-[#90C695]/20 via-[#90C695]/8 to-transparent rounded-full blur-2xl"></div>
-        <div className="absolute top-1/4 right-1/4 w-72 h-72 bg-gradient-radial from-[#1A8B47]/15 via-transparent to-transparent rounded-full blur-2xl"></div>
-        
-        {/* Geometric accent shapes */}
-        <div className="absolute top-20 left-1/3 w-32 h-32 bg-gradient-to-br from-[#1A8B47]/20 to-transparent transform rotate-45 blur-xl"></div>
-        <div className="absolute bottom-32 right-1/3 w-24 h-24 bg-gradient-to-br from-[#4FBF7C]/25 to-transparent transform rotate-12 blur-lg"></div>
-        
-        {/* Subtle grid pattern overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(26,139,71,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(26,139,71,0.03)_1px,transparent_1px)] bg-[size:50px_50px] dark:bg-[linear-gradient(rgba(79,191,124,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(79,191,124,0.02)_1px,transparent_1px)]"></div>
-      </div>
-
+    <div className="min-h-[70vh] flex items-center justify-center p-4 bg-white dark:bg-gray-950">
       {/* Theme Toggle Button */}
       <button
         onClick={toggleTheme}
-        className="absolute top-6 right-6 p-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/60 dark:border-gray-700/60 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group"
+        className="absolute top-6 right-6 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
         aria-label="Toggle theme"
       >
         {resolvedTheme === "dark" ? (
-          <Sun className="w-5 h-5 text-yellow-500 group-hover:rotate-180 transition-transform duration-300" />
+          <Sun className="w-5 h-5" />
         ) : (
-          <Moon className="w-5 h-5 text-gray-700 group-hover:-rotate-12 transition-transform duration-300" />
+          <Moon className="w-5 h-5" />
         )}
       </button>
 
       <div className="relative w-full max-w-md z-10">
         {/* Header */}
-        <div className="text-center mb-10">
-          <div className="relative mx-auto w-[200px] h-[80px] mb-8 drop-shadow-lg">
+        <div className="text-center mb-8">
+          <div className="relative mx-auto w-[180px] h-[64px] mb-6">
             <Image
               src="/metsa_logo.png"
               alt="METSA Logo"
               fill
-              className="object-contain filter drop-shadow-md"
+              className="object-contain"
               priority
             />
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-[#1A8B47] to-gray-900 dark:from-white dark:via-[#4FBF7C] dark:to-white bg-clip-text text-transparent transition-colors duration-300 mb-2">
-            Welcome Back
+          <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">
+            Sign in to MyMetsa
           </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400 transition-colors duration-300 font-medium">
-            Access your underground tank solutions portal
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Secure access to your Metsa portal
           </p>
-          <div className="mt-4 flex items-center justify-center gap-2 text-sm text-[#1A8B47] dark:text-[#4FBF7C] font-semibold">
-            <Droplets className="w-4 h-4" />
-            <span>Pioneering Excellence in Underground Tank Solutions</span>
-          </div>
         </div>
 
         {/* Login Card */}
-        <div className="relative group">
-          {/* Card glow effect */}
-          <div className="absolute -inset-1 bg-gradient-to-r from-[#1A8B47]/20 via-[#4FBF7C]/20 to-[#90C695]/20 rounded-3xl blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
-          
-          <div className="relative bg-white/80 dark:bg-gray-900/80 backdrop-blur-2xl border border-gray-200/40 dark:border-gray-700/40 rounded-3xl shadow-2xl p-8 transition-all duration-300">
+        <div className="relative">
+          <div className="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Error Message */}
               {error && (
                 <div
-                  className={`relative overflow-hidden border rounded-2xl p-4 transition-all duration-300 ${
+                  className={`relative overflow-hidden border rounded-xl p-4 ${
                     getErrorStyles().container
                   }`}
                 >
@@ -668,17 +687,13 @@ export default function LoginPage() {
                     {getErrorIcon()}
                     <div>
                       <h3
-                        className={`text-sm font-semibold mb-1 ${
+                        className={`text-sm font-medium mb-1 ${
                           getErrorStyles().title
                         }`}
                       >
                         {getErrorTitle()}
                       </h3>
-                      <p
-                        className={`text-sm leading-relaxed ${
-                          getErrorStyles().text
-                        }`}
-                      >
+                      <p className={`text-sm ${getErrorStyles().text}`}>
                         {error}
                       </p>
                     </div>
@@ -703,7 +718,7 @@ export default function LoginPage() {
                     type="text"
                     value={usernameOrEmail}
                     onChange={(e) => setUsernameOrEmail(e.target.value)}
-                    className="w-full h-14 pl-12 pr-4 bg-white/60 dark:bg-gray-800/60 border-2 border-gray-300/50 dark:border-gray-700/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] dark:focus:ring-[#4FBF7C] focus:border-[#1A8B47] dark:focus:border-[#4FBF7C] text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 shadow-sm backdrop-blur-xl hover:bg-white/80 dark:hover:bg-gray-800/80 hover:border-[#1A8B47]/50 dark:hover:border-[#4FBF7C]/50"
+                    className="w-full h-12 pl-12 pr-4 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] focus:border-[#1A8B47] dark:focus:ring-[#1A8B47] dark:focus:border-[#1A8B47] text-gray-900 dark:text-gray-100 placeholder-gray-500"
                     placeholder="Username or email@example.com"
                     required
                     autoComplete="username email"
@@ -725,14 +740,14 @@ export default function LoginPage() {
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="w-5 h-5 text-gray-400 dark:text-gray-500 group-focus-within:text-[#1A8B47] dark:group-focus-within:text-[#4FBF7C] transition-colors duration-200" />
+                    <Lock className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                   </div>
                   <input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full h-14 pl-12 pr-12 bg-white/60 dark:bg-gray-800/60 border-2 border-gray-300/50 dark:border-gray-700/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] dark:focus:ring-[#4FBF7C] focus:border-[#1A8B47] dark:focus:border-[#4FBF7C] text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 shadow-sm backdrop-blur-xl hover:bg-white/80 dark:hover:bg-gray-800/80 hover:border-[#1A8B47]/50 dark:hover:border-[#4FBF7C]/50"
+                    className="w-full h-12 pl-12 pr-12 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] focus:border-[#1A8B47] dark:focus:ring-[#1A8B47] dark:focus:border-[#1A8B47] text-gray-900 dark:text-gray-100 placeholder-gray-500"
                     placeholder="Enter your password"
                     required
                     autoComplete="current-password"
@@ -740,7 +755,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 dark:text-gray-500 hover:text-[#1A8B47] dark:hover:text-[#4FBF7C] transition-colors duration-200"
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
                     }
@@ -760,94 +775,73 @@ export default function LoginPage() {
                   <input
                     id="remember-me"
                     type="checkbox"
-                    className="h-4 w-4 text-[#1A8B47] dark:text-[#4FBF7C] bg-white/60 dark:bg-gray-800/60 border-gray-300 dark:border-gray-600 rounded focus:ring-[#1A8B47] dark:focus:ring-[#4FBF7C] focus:ring-2 transition-all duration-200"
+                    className="h-4 w-4 text-[#1A8B47] bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 rounded focus:ring-[#1A8B47] focus:ring-2"
                   />
                   <label
                     htmlFor="remember-me"
-                    className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-300"
+                    className="ml-3 text-sm text-gray-700 dark:text-gray-300"
                   >
                     Remember me
                   </label>
                 </div>
                 <button
                   type="button"
-                  className="text-sm font-semibold text-[#1A8B47] dark:text-[#4FBF7C] hover:text-[#0F5D2A] dark:hover:text-[#6FD293] transition-colors duration-200 underline-offset-4 hover:underline"
+                  className="text-sm font-medium text-[#1A8B47] hover:underline underline-offset-4"
                 >
                   Forgot password?
                 </button>
               </div>
 
-              {/* Security Info - METSA themed */}
-              <div className="p-4 bg-gradient-to-r from-[#1A8B47]/10 via-[#4FBF7C]/10 to-[#90C695]/10 dark:from-[#1A8B47]/20 dark:via-[#4FBF7C]/20 dark:to-[#90C695]/20 border-2 border-[#1A8B47]/20 dark:border-[#4FBF7C]/30 rounded-2xl backdrop-blur-sm">
-                <div className="flex items-center gap-3 text-sm text-[#0F5D2A] dark:text-[#4FBF7C]">
-                  <Shield className="w-5 h-5 flex-shrink-0" />
-                  <span className="font-semibold">
-                    Secure access to your tank management portal
-                  </span>
+              {/* Security note */}
+              <div className="p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl">
+                <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <Shield className="w-4 h-4" />
+                  <span>Secure access to your MyMetsa portal</span>
                 </div>
               </div>
 
-              {/* Submit Button - Enhanced METSA Green */}
+              {/* Submit Button */}
               <LoadingButton
                 type="submit"
                 isLoading={isLoading}
                 loadingText="Signing you in..."
                 size="lg"
-                className="group relative w-full h-14 bg-gradient-to-r from-[#1A8B47] to-[#0F5D2A] hover:from-[#0F5D2A] hover:to-[#1A8B47] dark:from-[#1A8B47] dark:to-[#4FBF7C] dark:hover:from-[#4FBF7C] dark:hover:to-[#1A8B47] disabled:from-gray-400 disabled:to-gray-500 dark:disabled:from-gray-600 dark:disabled:to-gray-700 text-white font-bold text-lg rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-[1.02] transform"
+                variant="primary"
+                className="group relative w-full h-12 rounded-xl"
                 icon={
-                  !isLoading ? (
-                    <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform duration-200" />
-                  ) : undefined
+                  !isLoading ? <ArrowRight className="w-5 h-5" /> : undefined
                 }
               >
                 Sign In
               </LoadingButton>
 
               {/* Divider */}
-              <div className="relative my-8">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t-2 border-gray-300 dark:border-gray-700"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-6 py-2 bg-white/80 dark:bg-gray-900/80 text-gray-600 dark:text-gray-400 font-semibold rounded-full backdrop-blur-sm border border-gray-200 dark:border-gray-700">
-                    New to METSA?
-                  </span>
-                </div>
-              </div>
+              <div className="my-4 h-px bg-gray-200 dark:bg-gray-800" />
 
-              {/* Signup Link - Enhanced METSA themed */}
+              {/* Signup Link */}
               <Link
                 href="/signup"
-                className="group flex items-center justify-center gap-3 w-full h-14 px-6 py-3 bg-white dark:bg-gray-800 border-2 border-[#1A8B47]/40 dark:border-[#4FBF7C]/40 text-gray-700 dark:text-gray-300 font-bold text-lg rounded-2xl hover:bg-gradient-to-r hover:from-[#1A8B47]/10 hover:to-[#4FBF7C]/10 dark:hover:from-[#1A8B47]/20 dark:hover:to-[#4FBF7C]/20 hover:border-[#1A8B47] dark:hover:border-[#4FBF7C] transition-all duration-300 shadow-lg hover:shadow-xl backdrop-blur-sm hover:scale-[1.02] transform"
+                className="group flex items-center justify-center gap-2 w-full h-12 px-4 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-800 dark:text-gray-200 hover:border-[#1A8B47]"
               >
-                <UserPlus className="w-6 h-6 text-[#1A8B47] dark:text-[#4FBF7C] group-hover:scale-110 transition-transform duration-200" />
-                Create New Account
+                <UserPlus className="w-5 h-5 text-[#1A8B47]" />
+                Create new account
               </Link>
             </form>
           </div>
         </div>
 
-        {/* Enhanced Footer */}
-        <div className="text-center mt-10 space-y-4">
-          <div className="flex items-center justify-center gap-2 text-base font-semibold text-[#1A8B47] dark:text-[#4FBF7C]">
-            <Droplets className="w-5 h-5" />
-            <span>Innovating New Industry Standards</span>
-          </div>
-          <p className="text-gray-600 dark:text-gray-400 transition-colors duration-300 font-medium">
-            Need help?{" "}
-            <a
-              href="#"
-              className="text-[#1A8B47] dark:text-[#4FBF7C] hover:text-[#0F5D2A] dark:hover:text-[#6FD293] font-bold transition-colors duration-200 underline-offset-4 hover:underline"
-            >
-              Contact our support team
-            </a>{" "}
-            for assistance.
-          </p>
+        {/* Footer */}
+        <div className="text-center mt-8 text-sm text-gray-600 dark:text-gray-400">
+          Need help?{" "}
+          <a href="#" className="text-[#1A8B47] hover:underline">
+            Contact support
+          </a>
         </div>
       </div>
     </div>
   );
 }
+
 ```
 
 ## app\(auth)\signup\page.tsx
@@ -1014,14 +1008,14 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center p-4 transition-colors duration-500">
+      <div className="min-h-[70vh] flex items-center justify-center p-4 bg-white dark:bg-gray-950">
         <div className="max-w-md w-full">
-          <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-2xl border border-gray-200/20 dark:border-gray-700/30 rounded-3xl shadow-2xl p-8 text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm p-8 text-center">
+            <div className="w-16 h-16 bg-[#1A8B47] rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-10 h-10 text-white" />
             </div>
 
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
               Account Created Successfully!
             </h2>
 
@@ -1031,9 +1025,9 @@ export default function SignupPage() {
                 administrators.
               </p>
 
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-                <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 mx-auto mb-2" />
-                <p className="text-sm text-blue-800 dark:text-blue-200">
+              <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+                <Info className="w-5 h-5 text-gray-700 dark:text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-700 dark:text-gray-300">
                   You will receive an email notification once your account has
                   been reviewed and approved.
                 </p>
@@ -1043,7 +1037,7 @@ export default function SignupPage() {
 
               <Link
                 href="/login"
-                className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 font-medium transition-colors duration-200"
+                className="inline-flex items-center gap-2 text-[#1A8B47] hover:underline"
               >
                 Go to Login
                 <ArrowRight className="w-4 h-4" />
@@ -1056,23 +1050,17 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center p-4 transition-colors duration-500">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-32 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-400/20 dark:from-blue-600/10 dark:to-purple-600/10 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-32 w-80 h-80 bg-gradient-to-br from-emerald-400/20 to-blue-400/20 dark:from-emerald-600/10 dark:to-blue-600/10 rounded-full blur-3xl"></div>
-      </div>
-
+    <div className="min-h-[70vh] flex items-center justify-center p-4 bg-white dark:bg-gray-950">
       {/* Theme Toggle Button */}
       <button
         onClick={toggleTheme}
-        className="absolute top-6 right-6 p-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+        className="absolute top-6 right-6 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
         aria-label="Toggle theme"
       >
         {resolvedTheme === "dark" ? (
-          <Sun className="w-5 h-5 text-yellow-500" />
+          <Sun className="w-5 h-5" />
         ) : (
-          <Moon className="w-5 h-5 text-gray-700" />
+          <Moon className="w-5 h-5" />
         )}
       </button>
 
@@ -1087,29 +1075,28 @@ export default function SignupPage() {
             className="mx-auto"
             priority
           />
-          <h1 className="mt-8 text-4xl font-bold text-gray-900 dark:text-white">
-            Create Your Account
+          <h1 className="mt-6 text-3xl font-semibold text-gray-900 dark:text-white">
+            Create your account
           </h1>
-          <p className="mt-3 text-lg text-gray-600 dark:text-gray-400">
-            Join the document portal to get started
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Join the MyMetsa portal to get started
           </p>
         </div>
 
         {/* Signup Card */}
         <div className="relative">
-          <div className="absolute inset-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-3xl shadow-2xl"></div>
-          <div className="relative bg-white/70 dark:bg-gray-900/70 backdrop-blur-2xl border border-gray-200/20 dark:border-gray-700/30 rounded-3xl shadow-2xl p-8 transition-all duration-300">
+          <div className="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm p-8">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Error Message */}
               {error && (
-                <div className="relative overflow-hidden bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-2xl p-4 transition-all duration-300">
+                <div className="relative overflow-hidden bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl p-4">
                   <div className="relative flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400 mt-0.5" />
                     <div>
-                      <h3 className="text-sm font-semibold text-red-900 dark:text-red-200 mb-1">
+                      <h3 className="text-sm font-medium text-red-900 dark:text-red-200 mb-1">
                         Registration Failed
                       </h3>
-                      <p className="text-sm text-red-700 dark:text-red-300 leading-relaxed">
+                      <p className="text-sm text-red-700 dark:text-red-300">
                         {error}
                       </p>
                     </div>
@@ -1128,13 +1115,13 @@ export default function SignupPage() {
                     onClick={() =>
                       setFormData({ ...formData, role: UserRole.CUSTOMER })
                     }
-                    className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                    className={`p-4 rounded-xl border transition-colors ${
                       formData.role === UserRole.CUSTOMER
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                        ? "border-[#1A8B47] bg-[#1A8B47]/5"
                         : "border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600"
                     }`}
                   >
-                    <User className="w-6 h-6 mx-auto mb-2 text-blue-600 dark:text-blue-400" />
+                    <User className="w-6 h-6 mx-auto mb-2 text-[#1A8B47]" />
                     <div className="font-medium text-gray-900 dark:text-white">
                       Customer
                     </div>
@@ -1148,13 +1135,13 @@ export default function SignupPage() {
                     onClick={() =>
                       setFormData({ ...formData, role: UserRole.EDITOR })
                     }
-                    className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                    className={`p-4 rounded-xl border transition-colors ${
                       formData.role === UserRole.EDITOR
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                        ? "border-[#1A8B47] bg-[#1A8B47]/5"
                         : "border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600"
                     }`}
                   >
-                    <Shield className="w-6 h-6 mx-auto mb-2 text-purple-600 dark:text-purple-400" />
+                    <Shield className="w-6 h-6 mx-auto mb-2 text-[#1A8B47]" />
                     <div className="font-medium text-gray-900 dark:text-white">
                       Editor
                     </div>
@@ -1186,7 +1173,7 @@ export default function SignupPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, email: e.target.value })
                       }
-                      className={`w-full h-14 pl-12 pr-4 bg-white/50 dark:bg-gray-800/50 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 ${
+                      className={`w-full h-12 pl-12 pr-4 bg-white dark:bg-gray-900 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] focus:border-[#1A8B47] text-gray-900 dark:text-gray-100 placeholder-gray-500 ${
                         validationErrors.email
                           ? "border-red-500 dark:border-red-400"
                           : "border-gray-300 dark:border-gray-700"
@@ -1221,7 +1208,7 @@ export default function SignupPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, username: e.target.value })
                       }
-                      className={`w-full h-14 pl-12 pr-4 bg-white/50 dark:bg-gray-800/50 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 ${
+                      className={`w-full h-12 pl-12 pr-4 bg-white dark:bg-gray-900 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] focus:border-[#1A8B47] text-gray-900 dark:text-gray-100 placeholder-gray-500 ${
                         validationErrors.username
                           ? "border-red-500 dark:border-red-400"
                           : "border-gray-300 dark:border-gray-700"
@@ -1259,7 +1246,7 @@ export default function SignupPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, password: e.target.value })
                       }
-                      className={`w-full h-14 pl-12 pr-12 bg-white/50 dark:bg-gray-800/50 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 ${
+                      className={`w-full h-12 pl-12 pr-12 bg-white dark:bg-gray-900 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] focus:border-[#1A8B47] text-gray-900 dark:text-gray-100 placeholder-gray-500 ${
                         validationErrors.password
                           ? "border-red-500 dark:border-red-400"
                           : "border-gray-300 dark:border-gray-700"
@@ -1270,7 +1257,7 @@ export default function SignupPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200"
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       {showPassword ? (
                         <EyeOff className="w-5 h-5" />
@@ -1308,7 +1295,7 @@ export default function SignupPage() {
                           confirmPassword: e.target.value,
                         })
                       }
-                      className={`w-full h-14 pl-12 pr-12 bg-white/50 dark:bg-gray-800/50 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 ${
+                      className={`w-full h-12 pl-12 pr-12 bg-white dark:bg-gray-900 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] focus:border-[#1A8B47] text-gray-900 dark:text-gray-100 placeholder-gray-500 ${
                         validationErrors.confirmPassword
                           ? "border-red-500 dark:border-red-400"
                           : "border-gray-300 dark:border-gray-700"
@@ -1321,7 +1308,7 @@ export default function SignupPage() {
                       onClick={() =>
                         setShowConfirmPassword(!showConfirmPassword)
                       }
-                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200"
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       {showConfirmPassword ? (
                         <EyeOff className="w-5 h-5" />
@@ -1368,7 +1355,7 @@ export default function SignupPage() {
                               company: e.target.value,
                             })
                           }
-                          className={`w-full h-12 pl-12 pr-4 bg-white dark:bg-gray-800 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 ${
+                          className={`w-full h-12 pl-12 pr-4 bg-white dark:bg-gray-900 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] focus:border-[#1A8B47] text-gray-900 dark:text-gray-100 placeholder-gray-500 ${
                             validationErrors.company
                               ? "border-red-500 dark:border-red-400"
                               : "border-gray-300 dark:border-gray-700"
@@ -1407,7 +1394,7 @@ export default function SignupPage() {
                                 phone: e.target.value,
                               })
                             }
-                            className="w-full h-12 pl-12 pr-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300"
+                            className="w-full h-12 pl-12 pr-4 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] focus:border-[#1A8B47] text-gray-900 dark:text-gray-100 placeholder-gray-500"
                             placeholder="+1 (555) 123-4567"
                           />
                         </div>
@@ -1434,7 +1421,7 @@ export default function SignupPage() {
                                 address: e.target.value,
                               })
                             }
-                            className="w-full h-12 pl-12 pr-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300"
+                            className="w-full h-12 pl-12 pr-4 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] focus:border-[#1A8B47] text-gray-900 dark:text-gray-100 placeholder-gray-500"
                             placeholder="123 Main St, City"
                           />
                         </div>
@@ -1445,10 +1432,10 @@ export default function SignupPage() {
               )}
 
               {/* Info Message */}
-              <div className="p-4 bg-blue-50/50 dark:bg-blue-900/20 border border-blue-200/50 dark:border-blue-800/50 rounded-xl">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl">
                 <div className="flex items-start gap-3">
-                  <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-                  <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <Info className="w-5 h-5 text-gray-700 dark:text-gray-300 mt-0.5" />
+                  <div className="text-sm text-gray-700 dark:text-gray-300">
                     <p className="font-medium mb-1">
                       Account Approval Required
                     </p>
@@ -1496,12 +1483,9 @@ export default function SignupPage() {
                 isLoading={isLoading}
                 loadingText="Creating account..."
                 size="lg"
-                className="group relative w-full bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-500 dark:to-purple-500 hover:from-blue-700 hover:to-purple-700 dark:hover:from-blue-600 dark:hover:to-purple-600 disabled:from-gray-400 disabled:to-gray-500 dark:disabled:from-gray-600 dark:disabled:to-gray-700 text-white font-semibold rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl dark:shadow-blue-500/25 dark:hover:shadow-blue-500/40"
-                icon={
-                  !isLoading ? (
-                    <UserPlus className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
-                  ) : undefined
-                }
+                variant="primary"
+                className="group relative w-full h-12 rounded-xl"
+                icon={!isLoading ? <UserPlus className="w-5 h-5" /> : undefined}
               >
                 Create Account
               </LoadingButton>
@@ -1512,7 +1496,7 @@ export default function SignupPage() {
                   Already have an account?{" "}
                   <Link
                     href="/login"
-                    className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 font-medium transition-colors duration-200"
+                    className="text-[#1A8B47] hover:underline"
                   >
                     Sign in here
                   </Link>
@@ -1565,15 +1549,15 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 overflow-x-hidden">
       <Sidebar />
       {/* Main content wrapper */}
-      <div className="flex">
+      <div className="flex overflow-x-hidden">
         {/* Spacer div that matches sidebar width */}
         <div className="hidden lg:block w-16 transition-all duration-300 sidebar-spacer" />
 
         {/* Main content */}
-        <main className="flex-1 pt-[60px] lg:pt-0 transition-all duration-300">
+        <main className="flex-1 pt-[60px] lg:pt-0 transition-all duration-300 overflow-x-hidden">
           {children}
         </main>
       </div>
@@ -1849,7 +1833,7 @@ const ModernModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <button
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
@@ -2980,6 +2964,7 @@ import Image from "next/image";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import { useNotifications } from "@/hooks/useNotifications";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
@@ -2998,6 +2983,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const queryClient = useQueryClient();
+  const { unreadCount } = useNotifications();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -3163,7 +3149,21 @@ export default function Sidebar() {
                     )}
                     aria-current={active ? "page" : undefined}
                   >
-                    <Icon className="h-5 w-5 mr-3 shrink-0" />
+                    {item.name === "Notifications" ? (
+                      <span className="relative inline-flex mr-3">
+                        <Icon className="h-5 w-5 shrink-0" />
+                        {unreadCount > 0 && (
+                          <span
+                            className="absolute -top-1 -right-1 inline-flex items-center justify-center rounded-full h-4 min-w-[16px] px-0.5 text-[9px] font-semibold bg-red-500 text-white shadow"
+                            aria-label={`${unreadCount} unread notifications`}
+                          >
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <Icon className="h-5 w-5 mr-3 shrink-0" />
+                    )}
                     <span>{item.name}</span>
                     {active && (
                       <span className="ml-auto inline-block h-2 w-2 rounded-full bg-white/90" />
@@ -3319,15 +3319,47 @@ export default function Sidebar() {
                 title={isCollapsed ? item.name : undefined}
                 aria-current={active ? "page" : undefined}
               >
-                <Icon
-                  className={cn(
-                    "h-5 w-5 shrink-0",
-                    isCollapsed ? "mx-auto" : "mr-3",
-                    active
-                      ? "scale-110"
-                      : "group-hover:scale-105 transition-transform"
-                  )}
-                />
+                {item.name === "Notifications" ? (
+                  <span
+                    className={cn(
+                      "relative inline-flex",
+                      isCollapsed ? "mx-auto" : "mr-3"
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "h-5 w-5 shrink-0",
+                        active
+                          ? "scale-110"
+                          : "group-hover:scale-105 transition-transform"
+                      )}
+                    />
+                    {unreadCount > 0 && (
+                      <span
+                        className={cn(
+                          "absolute -top-1 -right-1 inline-flex items-center justify-center rounded-full text-[9px] font-semibold",
+                          isCollapsed
+                            ? "h-3.5 w-3.5"
+                            : "h-4 min-w-[16px] px-0.5",
+                          "bg-red-500 text-white shadow"
+                        )}
+                        aria-label={`${unreadCount} unread notifications`}
+                      >
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  <Icon
+                    className={cn(
+                      "h-5 w-5 shrink-0",
+                      isCollapsed ? "mx-auto" : "mr-3",
+                      active
+                        ? "scale-110"
+                        : "group-hover:scale-105 transition-transform"
+                    )}
+                  />
+                )}
                 <span
                   className={cn("truncate", isCollapsed ? "sr-only" : "inline")}
                 >
@@ -3450,7 +3482,8 @@ export default function RoleSpecificLayout({
 ```typescript
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ElementType, ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
@@ -3458,6 +3491,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { User, UserRole } from "@/types";
 import { format } from "date-fns";
 import SimpleLoading from "@/components/SimpleLoading";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import {
   UserCheck,
   UserX,
@@ -3469,218 +3503,224 @@ import {
   Calendar,
   Shield,
   Loader2,
+  Filter,
+  X,
+  ChevronDown,
+  Check,
+  Grid,
+  List,
+  AlertCircle,
+  Users,
+  MapPin,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 
-// Approval Modal Component
-const ApprovalModal = ({
-  user,
-  isOpen,
-  onClose,
-  onApprove,
-  onReject,
-  isProcessing,
-}: {
-  user: User | null;
-  isOpen: boolean;
-  onClose: () => void;
-  onApprove: () => void;
-  onReject: (reason: string) => void;
-  isProcessing: boolean;
-}) => {
-  const [rejectionReason, setRejectionReason] = useState("");
-  const [showRejectForm, setShowRejectForm] = useState(false);
+/* Hook: auto-hide on scroll (down hides, up shows) */
+function useAutoHideHeader(offsetPx = 24, minDelta = 6) {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    let lastY = window.scrollY || 0;
+    let ticking = false;
 
-  if (!isOpen || !user) return null;
+    const onScroll = () => {
+      const y = window.scrollY || 0;
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const delta = y - lastY;
+          if (Math.abs(delta) > minDelta) {
+            if (delta > 0 && y > offsetPx) {
+              setHidden(true);
+            } else {
+              setHidden(false);
+            }
+          }
+          lastY = y;
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [offsetPx, minDelta]);
+
+  return hidden;
+}
+
+/* Mobile-friendly Select (with Escape to close) */
+const ModernSelect = ({
+  value,
+  onChange,
+  options,
+  placeholder,
+  icon: Icon,
+  disabled = false,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+  icon?: ElementType;
+  disabled?: boolean;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = options.find((opt) => opt.value === value);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => !disabled && setIsOpen((o) => !o)}
+        disabled={disabled}
+        className={`w-full h-11 sm:h-12 px-3 sm:px-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-left flex items-center justify-between hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm ${
+          disabled ? "opacity-50 cursor-not-allowed" : ""
+        }`}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label="Open select"
+      >
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {Icon && (
+            <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+          )}
+          <span
+            className={
+              selectedOption
+                ? "text-gray-900 dark:text-white font-medium truncate"
+                : "text-gray-500 dark:text-gray-400 truncate"
+            }
+          >
+            {selectedOption ? selectedOption.label : placeholder}
+          </span>
+        </div>
+        <ChevronDown
+          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {isOpen && !disabled && (
+        <>
+          <button
+            className="fixed inset-0 z-30 cursor-default"
+            onClick={() => setIsOpen(false)}
+            aria-hidden="true"
+            tabIndex={-1}
+          />
+          <div
+            className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-40 max-h-64 overflow-auto"
+            role="listbox"
+          >
+            {options.map((option, index) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                role="option"
+                aria-selected={value === option.value}
+                className={`w-full px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between group transition-colors duration-150 ${
+                  index === 0 ? "rounded-t-xl" : ""
+                } ${index === options.length - 1 ? "rounded-b-xl" : ""}`}
+              >
+                <span className="text-gray-900 dark:text-white font-medium">
+                  {option.label}
+                </span>
+                {value === option.value && (
+                  <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+/* Modal (Escape to close) */
+const ModernModal = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  maxWidth = "max-w-2xl",
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+  maxWidth?: string;
+}) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+      <button
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
+        aria-hidden="true"
       />
-      <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-800">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Review Account Application
+      <div
+        className={`relative bg-white dark:bg-gray-900 rounded-2xl p-5 sm:p-6 ${maxWidth} w-full shadow-2xl border border-gray-200 dark:border-gray-800 max-h-[90vh] overflow-y-auto`}
+      >
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+            {title}
           </h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+            aria-label="Close modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
-
-        <div className="p-6 space-y-6">
-          {/* User Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Username
-              </label>
-              <p className="font-medium text-gray-900 dark:text-white">
-                {user.username}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Email
-              </label>
-              <p className="font-medium text-gray-900 dark:text-white">
-                {user.email}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Role
-              </label>
-              <span
-                className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-lg ${
-                  user.role === UserRole.ADMIN
-                    ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
-                    : user.role === UserRole.EDITOR
-                    ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
-                    : "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
-                }`}
-              >
-                <Shield className="w-3 h-3 mr-1.5" />
-                {user.role}
-              </span>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Applied On
-              </label>
-              <p className="font-medium text-gray-900 dark:text-white">
-                {format(new Date(user.created_at), "MMM dd, yyyy 'at' HH:mm")}
-              </p>
-            </div>
-          </div>
-
-          {/* Customer Information */}
-          {user.role === UserRole.CUSTOMER && user.customer_info && (
-            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-                Company Information
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {user.customer_info.company && (
-                  <div className="flex items-center gap-2">
-                    <Building className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {user.customer_info.company}
-                    </span>
-                  </div>
-                )}
-                {user.customer_info.phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {user.customer_info.phone}
-                    </span>
-                  </div>
-                )}
-                {user.customer_info.address && (
-                  <div className="flex items-center gap-2 col-span-full">
-                    <Mail className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {user.customer_info.address}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Rejection Form */}
-          {showRejectForm && (
-            <div className="space-y-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
-              <label className="block text-sm font-semibold text-red-900 dark:text-red-200">
-                Rejection Reason (Required)
-              </label>
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Please provide a reason for rejecting this application..."
-                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                rows={3}
-                required
-              />
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex justify-end gap-3">
-            {!showRejectForm ? (
-              <>
-                <button
-                  onClick={onClose}
-                  disabled={isProcessing}
-                  className="px-6 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => setShowRejectForm(true)}
-                  disabled={isProcessing}
-                  className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition-colors flex items-center gap-2"
-                >
-                  <UserX className="w-4 h-4" />
-                  Reject
-                </button>
-                <button
-                  onClick={onApprove}
-                  disabled={isProcessing}
-                  className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl transition-colors flex items-center gap-2"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <UserCheck className="w-4 h-4" />
-                      Approve
-                    </>
-                  )}
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => {
-                    setShowRejectForm(false);
-                    setRejectionReason("");
-                  }}
-                  disabled={isProcessing}
-                  className="px-6 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={() => {
-                    if (rejectionReason.trim()) {
-                      onReject(rejectionReason);
-                    }
-                  }}
-                  disabled={isProcessing || !rejectionReason.trim()}
-                  className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium rounded-xl transition-colors flex items-center gap-2"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <UserX className="w-4 h-4" />
-                      Confirm Rejection
-                    </>
-                  )}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+        {children}
       </div>
     </div>
   );
 };
+
+/* Helpers */
+const getRoleColor = (role: UserRole) => {
+  switch (role) {
+    case UserRole.ADMIN:
+      return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800";
+    case UserRole.EDITOR:
+      return "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800";
+    case UserRole.CUSTOMER:
+      return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800";
+    default:
+      return "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 border-gray-200 dark:border-gray-700";
+  }
+};
+
+const formatRoleLabel = (role: string) =>
+  role ? role.charAt(0).toUpperCase() + role.slice(1).toLowerCase() : "";
 
 export default function ApprovalsPage() {
   const { user } = useAuth();
@@ -3689,11 +3729,37 @@ export default function ApprovalsPage() {
 
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // View mode (persisted)
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  useEffect(() => {
+    const stored = localStorage.getItem("approvals:viewMode");
+    if (stored === "list" || stored === "grid") setViewMode(stored);
+  }, []);
+  useEffect(() => {
+    localStorage.setItem("approvals:viewMode", viewMode);
+  }, [viewMode]);
+
+  // Auto-hide header
+  const headerHidden = useAutoHideHeader(24, 6);
+
+  // Filters
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterRole, setFilterRole] = useState("all");
+  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 250);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+
+  // Modal state
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   // Check permissions
   useEffect(() => {
@@ -3704,18 +3770,18 @@ export default function ApprovalsPage() {
 
   const fetchPendingUsers = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const response = await api.get("/users/pending");
       setPendingUsers(response.data);
-    } catch (error) {
-      console.error("Error fetching pending users:", error);
-      toast.error("Failed to load pending users");
+    } catch (err: unknown) {
+      console.error("Error fetching pending users:", err);
+      setError("Failed to load pending approvals. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
-  // Fetch pending users
   useEffect(() => {
     fetchPendingUsers();
   }, [fetchPendingUsers]);
@@ -3732,214 +3798,555 @@ export default function ApprovalsPage() {
       toast.success(`User ${selectedUser.username} has been approved`);
       setIsModalOpen(false);
       setSelectedUser(null);
+      setShowRejectForm(false);
+      setRejectionReason("");
       fetchPendingUsers();
-    } catch (error) {
-      console.error("Error approving user:", error);
-      toast.error("Failed to approve user");
+    } catch (err: unknown) {
+      console.error("Error approving user:", err);
+      const error = err as { response?: { data?: { detail?: string } } };
+      toast.error(error.response?.data?.detail || "Failed to approve user");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleReject = async (reason: string) => {
-    if (!selectedUser) return;
+  const handleReject = async () => {
+    if (!selectedUser || !rejectionReason.trim()) return;
 
     setIsProcessing(true);
     try {
       await api.post(`/users/${selectedUser.id}/approve`, {
         approved: false,
-        rejection_reason: reason,
+        rejection_reason: rejectionReason,
       });
 
       toast.success(`User ${selectedUser.username} has been rejected`);
       setIsModalOpen(false);
       setSelectedUser(null);
+      setShowRejectForm(false);
+      setRejectionReason("");
       fetchPendingUsers();
-    } catch (error) {
-      console.error("Error rejecting user:", error);
-      toast.error("Failed to reject user");
+    } catch (err: unknown) {
+      console.error("Error rejecting user:", err);
+      const error = err as { response?: { data?: { detail?: string } } };
+      toast.error(error.response?.data?.detail || "Failed to reject user");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Filter users
-  const filteredUsers = pendingUsers.filter((user) => {
-    const matchesSearch =
-      user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (user.customer_info?.company &&
-        user.customer_info.company
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()));
+  const roleOptions = useMemo(
+    () => [
+      { value: "all", label: "All Roles" },
+      { value: UserRole.CUSTOMER, label: "Customer" },
+      { value: UserRole.EDITOR, label: "Editor" },
+    ],
+    []
+  );
 
-    const matchesRole = filterRole === "all" || user.role === filterRole;
-
-    return matchesSearch && matchesRole;
-  });
+  const filteredUsers = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    return pendingUsers.filter((u) => {
+      const matchesSearch =
+        !q ||
+        u.username.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        (u.customer_info?.company &&
+          u.customer_info.company.toLowerCase().includes(q));
+      const matchesRole = roleFilter === "all" || u.role === roleFilter;
+      return matchesSearch && matchesRole;
+    });
+  }, [pendingUsers, debouncedSearch, roleFilter]);
 
   if (loading) return <SimpleLoading message="Loading..." fullScreen />;
 
+  /* User Card (Grid) */
+  const UserCard = ({ user }: { user: User }) => (
+    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 sm:p-5 flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center flex-shrink-0">
+            <span className="text-white font-bold text-xl">
+              {user.username.charAt(0).toUpperCase()}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-semibold text-lg text-gray-900 dark:text-white truncate">
+              {user.username}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+              {user.email}
+            </p>
+          </div>
+        </div>
+        <Clock className="w-5 h-5 text-amber-500 flex-shrink-0" />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border ${getRoleColor(
+            user.role
+          )}`}
+        >
+          <Shield className="w-3 h-3" />
+          {formatRoleLabel(user.role)}
+        </span>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800">
+          <Clock className="w-3 h-3" />
+          Pending
+        </span>
+      </div>
+
+      {user.customer_info && (
+        <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1 pt-2 border-t border-gray-200 dark:border-gray-800">
+          {user.customer_info.company && (
+            <div className="flex items-center gap-1.5">
+              <Building className="w-3 h-3" />
+              <span className="truncate">{user.customer_info.company}</span>
+            </div>
+          )}
+          {user.customer_info.phone && (
+            <div className="flex items-center gap-1.5">
+              <Phone className="w-3 h-3" />
+              <span>{user.customer_info.phone}</span>
+            </div>
+          )}
+          {user.customer_info.address && (
+            <div className="flex items-center gap-1.5">
+              <MapPin className="w-3 h-3" />
+              <span className="truncate">{user.customer_info.address}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="text-xs text-gray-500 dark:text-gray-400">
+        <p>Applied: {format(new Date(user.created_at), "MMM dd, yyyy")}</p>
+      </div>
+
+      <button
+        onClick={() => {
+          setSelectedUser(user);
+          setIsModalOpen(true);
+        }}
+        className="w-full inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all"
+      >
+        <UserCheck className="w-3.5 h-3.5" />
+        Review Application
+      </button>
+    </div>
+  );
+
+  /* User Row (List) */
+  const UserRow = ({ user }: { user: User }) => (
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+      {/* LEFT: User Info */}
+      <div className="flex items-center gap-4 min-w-0 flex-grow">
+        <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg flex items-center justify-center flex-shrink-0">
+          <span className="text-white font-bold text-lg">
+            {user.username.charAt(0).toUpperCase()}
+          </span>
+        </div>
+        <div className="min-w-0">
+          <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+            {user.username}
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+            {user.email}
+          </p>
+        </div>
+      </div>
+
+      {/* RIGHT: Status, Info, Actions */}
+      <div className="flex items-center flex-wrap justify-end gap-x-4 gap-y-2">
+        <span
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border ${getRoleColor(
+            user.role
+          )}`}
+        >
+          <Shield className="w-3 h-3" />
+          {formatRoleLabel(user.role)}
+        </span>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800">
+          <Clock className="w-3 h-3" />
+          Pending
+        </span>
+
+        {user.customer_info?.company && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-lg">
+            <Building className="w-3 h-3" />
+            {user.customer_info.company}
+          </span>
+        )}
+
+        <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-col items-end">
+          <span>
+            Applied: {format(new Date(user.created_at), "MMM dd, yyyy")}
+          </span>
+        </div>
+
+        <button
+          onClick={() => {
+            setSelectedUser(user);
+            setIsModalOpen(true);
+          }}
+          className="inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          <UserCheck className="w-4 h-4" />
+          Review
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                User Approvals
-              </h1>
-              <p className="mt-2 text-gray-600 dark:text-gray-400">
-                Review and approve pending user registrations
-              </p>
-              <div className="flex items-center gap-4 mt-4">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-amber-500" />
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {filteredUsers.length} pending
-                  </span>
-                </div>
+      {isProcessing && <LoadingOverlay message="Processing request..." />}
+
+      {/* Header (auto-hide on scroll) */}
+      <div
+        className={`bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30 transition-transform duration-300 ease-out ${
+          headerHidden ? "-translate-y-full" : "translate-y-0"
+        }`}
+      >
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-5">
+          <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+                  User Approvals
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                  {filteredUsers.length} pending{" "}
+                  {filteredUsers.length === 1 ? "request" : "requests"}
+                </p>
+              </div>
+            </div>
+
+            <div className="w-full lg:w-auto flex justify-end">
+              <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 border border-gray-200 dark:border-gray-700 min-w-[112px]">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`h-9 sm:h-10 flex-1 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                    viewMode === "grid"
+                      ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  }`}
+                  aria-pressed={viewMode === "grid"}
+                  aria-label="Grid view"
+                >
+                  <Grid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`h-9 sm:h-10 flex-1 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                    viewMode === "list"
+                      ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  }`}
+                  aria-pressed={viewMode === "list"}
+                  aria-label="List view"
+                >
+                  <List className="w-4 h-4" />
+                </button>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Filters */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2">
-              <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                Search Users
-              </label>
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="search"
-                  placeholder="Search by username, email, or company..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-11 pl-12 pr-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+      {/* Filters & Content */}
+      <main className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-6">
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 sm:p-5 mb-6">
+            <div className="flex items-start gap-4">
+              <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-red-900 dark:text-red-100">
+                  Error Occurred
+                </h3>
+                <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                  {error}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm mb-6 sm:mb-8">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+            <div className="flex items-center gap-3">
+              <Filter className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Search & Filter
+              </h2>
+            </div>
+          </div>
+          <div className="p-4 sm:p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="lg:col-span-2">
+                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                  Search Users
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="search"
+                    placeholder="Search by username, email, or company..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full h-11 sm:h-12 pl-10 sm:pl-12 pr-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
+                    aria-label="Search users"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                  Filter by Role
+                </label>
+                <ModernSelect
+                  value={roleFilter}
+                  onChange={setRoleFilter}
+                  options={roleOptions}
+                  placeholder="All Roles"
+                  icon={Shield}
                 />
               </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                Filter by Role
-              </label>
-              <select
-                value={filterRole}
-                onChange={(e) => setFilterRole(e.target.value)}
-                className="w-full h-11 px-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white"
-              >
-                <option value="all">All Roles</option>
-                <option value={UserRole.CUSTOMER}>Customer</option>
-                <option value={UserRole.EDITOR}>Editor</option>
-              </select>
-            </div>
           </div>
         </div>
 
-        {/* Pending Users List */}
         {filteredUsers.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <UserCheck className="w-12 h-12 text-gray-400" />
+          <div className="text-center py-14 sm:py-16">
+            <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <UserCheck className="w-10 h-10 text-gray-400" />
             </div>
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              No Pending Approvals
+              {debouncedSearch || roleFilter !== "all"
+                ? "No Matching Approvals"
+                : "No Pending Approvals"}
             </h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              {searchQuery
-                ? "No users match your search criteria"
-                : "All user registrations have been reviewed"}
+            <p className="text-gray-600 dark:text-gray-400 mb-6 sm:text-base">
+              {debouncedSearch || roleFilter !== "all"
+                ? "Try adjusting your search or filter criteria."
+                : "All user registrations have been reviewed."}
             </p>
           </div>
+        ) : viewMode === "grid" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+            {filteredUsers.map((u) => (
+              <UserCard key={u.id} user={u} />
+            ))}
+          </div>
         ) : (
-          <div className="space-y-4">
-            {filteredUsers.map((user) => (
-              <div
-                key={user.id}
-                className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6 hover:shadow-lg transition-shadow"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
-                      <span className="text-white font-bold text-lg">
-                        {user.username.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                          {user.username}
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {user.email}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span
-                          className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg ${
-                            user.role === UserRole.EDITOR
-                              ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
-                              : "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
-                          }`}
-                        >
-                          <Shield className="w-3 h-3 mr-1.5" />
-                          {user.role}
-                        </span>
-
-                        {user.customer_info?.company && (
-                          <span className="inline-flex items-center px-3 py-1.5 text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                            <Building className="w-3 h-3 mr-1.5" />
-                            {user.customer_info.company}
-                          </span>
-                        )}
-
-                        <span className="inline-flex items-center text-xs text-gray-500 dark:text-gray-400">
-                          <Calendar className="w-3 h-3 mr-1.5" />
-                          Applied{" "}
-                          {format(new Date(user.created_at), "MMM dd, yyyy")}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setSelectedUser(user);
-                      setIsModalOpen(true);
-                    }}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors flex items-center gap-2"
-                  >
-                    <UserCheck className="w-4 h-4" />
-                    Review
-                  </button>
-                </div>
-              </div>
+          <div className="space-y-3 sm:space-y-4">
+            {filteredUsers.map((u) => (
+              <UserRow key={u.id} user={u} />
             ))}
           </div>
         )}
-      </div>
+      </main>
 
-      {/* Approval Modal */}
-      <ApprovalModal
-        user={selectedUser}
+      {/* Review Modal */}
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
           setSelectedUser(null);
+          setShowRejectForm(false);
+          setRejectionReason("");
         }}
-        onApprove={handleApprove}
-        onReject={handleReject}
-        isProcessing={isProcessing}
-      />
+        title="Review Account Application"
+        maxWidth="max-w-2xl"
+      >
+        {selectedUser && (
+          <div className="space-y-5 sm:space-y-6">
+            {/* User Avatar and Basic Info */}
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
+                <span className="text-white font-bold text-2xl">
+                  {selectedUser.username.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div>
+                <h4 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  {selectedUser.username}
+                </h4>
+                <p className="text-gray-600 dark:text-gray-400">
+                  {selectedUser.email}
+                </p>
+              </div>
+            </div>
+
+            {/* Details Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                  Role Requested
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border ${getRoleColor(
+                    selectedUser.role
+                  )}`}
+                >
+                  <Shield className="w-4 h-4" />
+                  {formatRoleLabel(selectedUser.role)}
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Applied On
+                </label>
+                <p className="font-medium text-gray-900 dark:text-white">
+                  {format(
+                    new Date(selectedUser.created_at),
+                    "MMM dd, yyyy 'at' HH:mm"
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Customer Information */}
+            {selectedUser.role === UserRole.CUSTOMER &&
+              selectedUser.customer_info && (
+                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                    Company Information
+                  </h4>
+                  <div className="space-y-2">
+                    {selectedUser.customer_info.company && (
+                      <div className="flex items-center gap-2">
+                        <Building className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {selectedUser.customer_info.company}
+                        </span>
+                      </div>
+                    )}
+                    {selectedUser.customer_info.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {selectedUser.customer_info.phone}
+                        </span>
+                      </div>
+                    )}
+                    {selectedUser.customer_info.address && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {selectedUser.customer_info.address}
+                        </span>
+                      </div>
+                    )}
+                    {selectedUser.customer_info.email && (
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {selectedUser.customer_info.email}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+            {/* Rejection Form */}
+            {showRejectForm && (
+              <div className="space-y-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
+                <label className="block text-sm font-semibold text-red-900 dark:text-red-200">
+                  Rejection Reason<span className="text-red-500 ml-1">*</span>
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Please provide a reason for rejecting this application..."
+                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-red-300 dark:border-red-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
+                  rows={3}
+                  required
+                />
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex flex-col-reverse sm:flex-row-reverse gap-3 pt-2">
+              {!showRejectForm ? (
+                <>
+                  <button
+                    onClick={handleApprove}
+                    disabled={isProcessing}
+                    className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-all duration-200 shadow-sm disabled:cursor-not-allowed"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck className="w-5 h-5" />
+                        Approve User
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setShowRejectForm(true)}
+                    disabled={isProcessing}
+                    className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200 shadow-sm disabled:cursor-not-allowed"
+                  >
+                    <UserX className="w-5 h-5" />
+                    Reject
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      setSelectedUser(null);
+                    }}
+                    disabled={isProcessing}
+                    className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
+                  >
+                    <X className="w-5 h-5" />
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={handleReject}
+                    disabled={isProcessing || !rejectionReason.trim()}
+                    className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200 shadow-sm disabled:cursor-not-allowed"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <UserX className="w-5 h-5" />
+                        Confirm Rejection
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowRejectForm(false);
+                      setRejectionReason("");
+                    }}
+                    disabled={isProcessing}
+                    className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
+                  >
+                    Back to Review
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </ModernModal>
     </div>
   );
 }
@@ -3994,6 +4401,7 @@ import {
   Check,
   AlertCircle,
   Filter,
+  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 import api from "@/lib/api";
@@ -4280,6 +4688,7 @@ export default function DocumentsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
 
   // View mode (persisted)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -4374,6 +4783,7 @@ export default function DocumentsPage() {
 
   const handleDownload = async (doc: Document) => {
     try {
+      setDownloadingIds((prev) => new Set(prev).add(doc.id));
       const response = await api.get(`/documents/${doc.id}/download`, {
         responseType: "blob",
       });
@@ -4390,20 +4800,25 @@ export default function DocumentsPage() {
     } catch (err) {
       console.error("Error downloading document:", err);
       toast.error("Failed to download document. Please try again.");
+    } finally {
+      setDownloadingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(doc.id);
+        return next;
+      });
     }
   };
 
-const handlePreview = (doc: Document) => {
-  setPreviewModal({
-    isOpen: true,
-    documentId: doc.id,
-    documentTitle: doc.title,
-    fileName: doc.file_name,
-    mimeType: doc.mime_type,
-    canDownload: false, // Always false to disable download
-  });
-};
-
+  const handlePreview = (doc: Document) => {
+    setPreviewModal({
+      isOpen: true,
+      documentId: doc.id,
+      documentTitle: doc.title,
+      fileName: doc.file_name,
+      mimeType: doc.mime_type,
+      canDownload: false, // Always false to disable download
+    });
+  };
 
   const handleEdit = (doc: Document) => {
     router.push(`/${user?.role}/documents/${doc.id}/edit`);
@@ -4549,10 +4964,16 @@ const handlePreview = (doc: Document) => {
         ) : (
           <button
             onClick={() => handleDownload(doc)}
-            className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-all"
+            disabled={downloadingIds.has(doc.id)}
+            aria-busy={downloadingIds.has(doc.id)}
+            className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-sm font-medium rounded-lg transition-all disabled:cursor-not-allowed"
           >
-            <Download className="w-4 h-4" />
-            Download
+            {downloadingIds.has(doc.id) ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            <span>Download</span>
           </button>
         )}
       </div>
@@ -4607,7 +5028,7 @@ const handlePreview = (doc: Document) => {
 
         {/* RIGHT: Status, Meta, Actions */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-4 md:gap-6 w-full md:w-auto">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 md:flex-1">
             <span
               className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border ${getCategoryColor(
                 doc.category
@@ -4634,14 +5055,16 @@ const handlePreview = (doc: Document) => {
             )}
           </div>
 
-          <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-col items-start md:items-end">
-            <span>Size: {formatFileSize(doc.file_size)}</span>
-            <span>
+          <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-col items-start md:items-end md:text-right whitespace-nowrap flex-shrink-0 md:min-w-[180px]">
+            <span className="whitespace-nowrap">
+              Size: {formatFileSize(doc.file_size)}
+            </span>
+            <span className="whitespace-nowrap">
               Updated: {format(new Date(doc.updated_at), "MMM dd, yyyy")}
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
             <button
               onClick={() => handlePreview(doc)}
               className="inline-flex items-center justify-center gap-1.5 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -4657,10 +5080,16 @@ const handlePreview = (doc: Document) => {
             ) : (
               <button
                 onClick={() => handleDownload(doc)}
-                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
+                disabled={downloadingIds.has(doc.id)}
+                aria-busy={downloadingIds.has(doc.id)}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 min-w-[116px] bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-sm font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
               >
-                <Download className="w-4 h-4" />
-                Download
+                {downloadingIds.has(doc.id) ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                <span>Download</span>
               </button>
             )}
             {canEdit && (
@@ -4721,8 +5150,14 @@ const handlePreview = (doc: Document) => {
               </div>
             </div>
 
-            <div className="w-full lg:w-auto grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-              <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 border border-gray-200 dark:border-gray-700">
+            <div
+              className={`${
+                canEdit
+                  ? "w-full lg:w-auto grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3"
+                  : "w-full lg:w-auto flex justify-end"
+              }`}
+            >
+              <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 border border-gray-200 dark:border-gray-700 min-w-[112px]">
                 <button
                   onClick={() => setViewMode("grid")}
                   className={`h-9 sm:h-10 flex-1 rounded-lg flex items-center justify-center transition-all duration-200 ${
@@ -4755,7 +5190,7 @@ const handlePreview = (doc: Document) => {
                   className="inline-flex items-center justify-center gap-2 h-11 sm:h-12 px-4 sm:px-6 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all duration-200 shadow-sm"
                 >
                   <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="text-sm sm:text-base">Upload</span>
+                  <span className="text-sm sm:text-base">Add Upload</span>
                 </button>
               )}
             </div>
@@ -4937,8 +5372,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 ## app\(dashboard)\[role]\documents\upload\page.tsx
 
 ```typescript
-// app\(dashboard)\[role]\documents\upload\page.tsx
-
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
@@ -5002,22 +5435,22 @@ const ModernSelect = ({
         onClick={() => setIsOpen(!isOpen)}
         className="w-full h-12 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-left flex items-center justify-between hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           {Icon && (
-            <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
           )}
           <span
             className={
               selectedOption
-                ? "text-gray-900 dark:text-white font-medium"
-                : "text-gray-500 dark:text-gray-400"
+                ? "text-gray-900 dark:text-white font-medium truncate"
+                : "text-gray-500 dark:text-gray-400 truncate"
             }
           >
             {selectedOption ? selectedOption.label : placeholder}
           </span>
         </div>
         <ChevronDown
-          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+          className={`w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ${
             isOpen ? "rotate-180" : ""
           }`}
         />
@@ -5135,16 +5568,16 @@ const SearchableMultiSelect = ({
         }}
         className="w-full min-h-12 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-left flex items-center justify-between hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm"
       >
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           {selectedLabels.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {selectedLabels.slice(0, 3).map((label, index) => (
                 <span
                   key={index}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium rounded-lg"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium rounded-lg break-words"
                 >
                   <UserPlus className="w-3 h-3" />
-                  {label}
+                  <span className="truncate">{label}</span>
                 </span>
               ))}
               {selectedLabels.length > 3 && (
@@ -5242,7 +5675,7 @@ const SearchableMultiSelect = ({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-900 dark:text-white font-medium">
+                          <span className="text-gray-900 dark:text-white font-medium truncate">
                             {option.label}
                           </span>
                           {option.email && (
@@ -5465,12 +5898,11 @@ export default function DocumentUploadPage() {
       String(formData.is_viewable_only)
     );
 
-    // FIX: Send assigned_customers as comma-separated string, not JSON
+    // Send assigned_customers as comma-separated string if any selected
     if (
       formData.visibility === DocumentVisibility.PRIVATE &&
       formData.assigned_customers.length > 0
     ) {
-      // Send as comma-separated string instead of JSON
       formDataToSend.append(
         "assigned_customers",
         formData.assigned_customers.join(",")
@@ -5548,14 +5980,7 @@ export default function DocumentUploadPage() {
       return;
     }
 
-    // Additional validation for private documents
-    if (
-      formData.visibility === DocumentVisibility.PRIVATE &&
-      formData.assigned_customers.length === 0
-    ) {
-      toast.error("Please select at least one customer for private documents");
-      return;
-    }
+    // Removed restriction: allow private documents without assigned users
 
     setIsUploading(true);
     setUploadProgress(
@@ -5608,9 +6033,9 @@ export default function DocumentUploadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 overflow-x-hidden">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30">
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30 overflow-x-hidden">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           <div className="flex items-center gap-3 sm:gap-4">
             <button
@@ -5637,7 +6062,7 @@ export default function DocumentUploadPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 overflow-x-hidden">
         <div className="space-y-8">
           {/* File Upload Area */}
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
@@ -5699,8 +6124,8 @@ export default function DocumentUploadPage() {
                           key={index}
                           className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700"
                         >
-                          <div className="flex items-center space-x-3 flex-1">
-                            <FileText className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                          <div className="flex items-center space-x-3 flex-1 min-w-0">
+                            <FileText className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                                 {file.name}
@@ -5712,7 +6137,7 @@ export default function DocumentUploadPage() {
                                 <div className="mt-2">
                                   {progress.status === "uploading" && (
                                     <div className="flex items-center space-x-2">
-                                      <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                      <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
                                         <div
                                           className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                                           style={{
@@ -5896,7 +6321,7 @@ export default function DocumentUploadPage() {
                         {formData.visibility === DocumentVisibility.PRIVATE && (
                           <span>
                             <strong>Private:</strong> Only assigned users can
-                            access
+                            access (you can leave empty and assign later)
                           </span>
                         )}
                         {formData.visibility ===
@@ -5933,7 +6358,9 @@ export default function DocumentUploadPage() {
                     </div>
                     <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
                       Access Control
-                      <span className="text-red-500 ml-1">*</span>
+                      <span className="text-gray-500 ml-2 text-sm font-normal">
+                        (Optional)
+                      </span>
                     </h2>
                   </div>
                   {customers.length > 0 && (
@@ -5947,9 +6374,6 @@ export default function DocumentUploadPage() {
                 <div className="space-y-3">
                   <label className="block text-sm font-semibold text-gray-900 dark:text-white">
                     Authorized Customers
-                    <span className="text-red-500 ml-1">
-                      Required for private documents
-                    </span>
                   </label>
                   <SearchableMultiSelect
                     selected={formData.assigned_customers}
@@ -5969,8 +6393,9 @@ export default function DocumentUploadPage() {
                       <p className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">
                         {formData.assigned_customers.length === 0 ? (
                           <span>
-                            Please select at least one customer who can access
-                            this private document.
+                            You can optionally select customers who can access
+                            this private document. If none are selected, no
+                            customers will have access until you assign them.
                           </span>
                         ) : (
                           <span>
@@ -6060,7 +6485,6 @@ export default function DocumentUploadPage() {
     </div>
   );
 }
-
 ```
 
 ## app\(dashboard)\[role]\documents\[id]\layout.tsx
@@ -7037,6 +7461,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
@@ -7213,14 +7638,23 @@ export default function NotificationsPage() {
 
   const markOne = useMutation({
     mutationFn: async (id: string) => api.put(`/notifications/${id}/read`),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      // notify listeners (e.g., sidebar badge) to refresh immediately
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("notifications:updated"));
+      }
+    },
   });
 
   const markAll = useMutation({
     mutationFn: async () => api.put("/notifications/read-all"),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("notifications:updated"));
+      }
+    },
   });
 
   const getNotificationIcon = (type: string) => {
@@ -7271,6 +7705,37 @@ export default function NotificationsPage() {
     { value: "all", label: "All", count: totalCount },
     { value: "unread", label: "Unread", count: unreadCount },
   ];
+
+  const getPrimaryAction = (n: Notification) => {
+    const isDocumentRelated =
+      n.type === "new_document" ||
+      n.type === "document_updated" ||
+      !!n.document_id;
+
+    if (isDocumentRelated) {
+      return {
+        href: `/${user?.role}/documents`,
+        label: "View Document",
+      } as const;
+    }
+
+    const text = `${n.title} ${n.message}`.toLowerCase();
+    const looksLikeUserSignup =
+      n.type === "user_signup" ||
+      text.includes("signed up") ||
+      text.includes("sign up") ||
+      text.includes("signup") ||
+      text.includes("pending approval");
+
+    if (looksLikeUserSignup) {
+      return {
+        href: `/${user?.role}/approvals`,
+        label: "Open Approvals",
+      } as const;
+    }
+
+    return null;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -7440,15 +7905,19 @@ export default function NotificationsPage() {
                         {/* Actions */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            {notification.document_id && (
-                              <a
-                                href={`/${user?.role}/documents/${notification.document_id}`}
-                                className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors duration-200"
-                              >
-                                <Eye className="w-4 h-4" />
-                                View Document
-                              </a>
-                            )}
+                            {(() => {
+                              const primary = getPrimaryAction(notification);
+                              if (!primary) return null;
+                              return (
+                                <Link
+                                  href={primary.href}
+                                  className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors duration-200"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  {primary.label}
+                                </Link>
+                              );
+                            })()}
                           </div>
 
                           {!notification.is_read && (
@@ -7932,39 +8401,6 @@ export default function SettingsPage() {
                               </button>
                             );
                           })}
-                        </div>
-                      </div>
-
-                      {/* Theme Preview */}
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
-                          Preview
-                        </h3>
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <span className="text-gray-900 dark:text-white font-medium">
-                                Sample Text
-                              </span>
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Secondary Text
-                              </span>
-                            </div>
-                            <div className="flex gap-2">
-                              <div className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm">
-                                Primary Button
-                              </div>
-                              <div className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg text-sm">
-                                Secondary Button
-                              </div>
-                            </div>
-                            <div className="p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                              <p className="text-gray-900 dark:text-white text-sm">
-                                This is how content cards will appear with the
-                                selected theme.
-                              </p>
-                            </div>
-                          </div>
                         </div>
                       </div>
 
@@ -8616,7 +9052,7 @@ export default function CategoryManagement() {
 ```typescript
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import {
   X,
@@ -8634,7 +9070,7 @@ import {
 import api from "@/lib/api";
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
-import { useToast } from "@/contexts/ToastContext";
+// import { useToast } from "@/contexts/ToastContext";
 
 // Dynamic import of react-pdf components with no SSR
 const Document = dynamic(
@@ -8649,12 +9085,9 @@ const Document = dynamic(
   }
 );
 
-const Page = dynamic(
-  () => import("react-pdf").then((mod) => mod.Page),
-  {
-    ssr: false,
-  }
-);
+const Page = dynamic(() => import("react-pdf").then((mod) => mod.Page), {
+  ssr: false,
+});
 
 // Import pdfjs and configure worker
 import("react-pdf").then((pdf) => {
@@ -8688,7 +9121,7 @@ export default function DocumentPreviewModal({
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const toast = useToast();
+  // const toast = useToast();
   const [convertedContent, setConvertedContent] = useState<string | null>(null);
   const [excelData, setExcelData] = useState<{
     html: string;
@@ -8702,8 +9135,8 @@ export default function DocumentPreviewModal({
   const [scale, setScale] = useState<number>(1.0);
   const [rotation, setRotation] = useState<number>(0);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
-  const [pageWidth, setPageWidth] = useState<number>(0);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const pdfContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Get file extension and type
   const fileExtension = fileName.split(".").pop()?.toLowerCase() || "";
@@ -8716,38 +9149,35 @@ export default function DocumentPreviewModal({
       loadPreview();
     }
     return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, documentId]);
 
-  // Calculate optimal scale for mobile
+  // Calculate optimal scale responsive to container width
   useEffect(() => {
     const calculateScale = () => {
       if (typeof window !== "undefined") {
         const isMobile = window.innerWidth <= 768;
-        const containerWidth = isMobile
-          ? window.innerWidth - 32 // Account for padding on mobile
-          : Math.min(window.innerWidth * 0.8, 1200); // Cap desktop width
-        
+        const measuredWidth = pdfContainerRef.current?.clientWidth;
+        const fallbackWidth = isMobile
+          ? window.innerWidth - 16
+          : Math.min(window.innerWidth * 0.8, 1200);
+        const containerWidth = Math.max(0, measuredWidth ?? fallbackWidth);
+
         // Standard PDF width is 612 points
         const optimalScale = containerWidth / 612;
-        
-        // Different scale limits for mobile vs desktop
-        if (isMobile) {
-          setScale(Math.min(optimalScale, 1.0)); // Cap at 1.0x for mobile
-        } else {
-          setScale(Math.min(optimalScale, 1.5)); // Cap at 1.5x for desktop
-        }
+
+        setScale(
+          isMobile ? Math.min(optimalScale, 1.0) : Math.min(optimalScale, 1.5)
+        );
       }
     };
 
     calculateScale();
     window.addEventListener("resize", calculateScale);
     return () => window.removeEventListener("resize", calculateScale);
-  }, []);
+  }, [isOpen, isFullscreen]);
 
   const loadPreview = async () => {
     setLoading(true);
@@ -8764,17 +9194,23 @@ export default function DocumentPreviewModal({
         responseType: "blob",
       });
 
-      const serverType = response.headers["content-type"] || mimeType || "application/octet-stream";
-      const effectiveType = serverType === "application/octet-stream" && isPDF
-        ? "application/pdf"
-        : serverType;
-      
+      const serverType =
+        (response.headers && (response.headers["content-type"] as string)) ||
+        mimeType ||
+        "application/octet-stream";
+
+      const effectiveType =
+        serverType === "application/octet-stream" && isPDF
+          ? "application/pdf"
+          : serverType;
+
       const blob = new Blob([response.data], { type: effectiveType });
 
       if (isPDF) {
         setPdfBlob(blob);
       } else {
         const url = URL.createObjectURL(blob);
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
         setPreviewUrl(url);
 
         if (isWord) {
@@ -8783,9 +9219,13 @@ export default function DocumentPreviewModal({
           await convertExcelDocument(blob);
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error loading preview:", err);
-      setError(err?.message || "Unable to load document preview. Please try again.");
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Unable to load document preview. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -8829,33 +9269,22 @@ export default function DocumentPreviewModal({
 
   const onDocumentLoadError = (error: Error) => {
     console.error("PDF load error:", error);
-    setPdfError("Failed to load PDF. The file may be corrupted or unsupported.");
+    setPdfError(
+      "Failed to load PDF. The file may be corrupted or unsupported."
+    );
   };
 
-  const goToPreviousPage = () => {
+  const goToPreviousPage = () =>
     setCurrentPage((prev) => Math.max(1, prev - 1));
-  };
-
-  const goToNextPage = () => {
+  const goToNextPage = () =>
     setCurrentPage((prev) => Math.min(numPages, prev + 1));
-  };
-
-  const zoomIn = () => {
-    setScale((prev) => Math.min(2.5, prev + 0.25));
-  };
-
-  const zoomOut = () => {
-    setScale((prev) => Math.max(0.5, prev - 0.25));
-  };
-
-  const rotate = () => {
-    setRotation((prev) => (prev + 90) % 360);
-  };
+  const zoomIn = () => setScale((prev) => Math.min(2.5, prev + 0.25));
+  const zoomOut = () => setScale((prev) => Math.max(0.5, prev - 0.25));
+  const rotate = () => setRotation((prev) => (prev + 90) % 360);
 
   const renderPDFPreview = () => {
     if (!pdfBlob) return null;
 
-    // Show PDF-specific error if exists
     if (pdfError) {
       return (
         <div className="flex items-center justify-center h-96">
@@ -8878,8 +9307,11 @@ export default function DocumentPreviewModal({
 
     return (
       <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
-        {/* PDF Controls - Hide zoom controls on mobile to save space */}
-        <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        {/* PDF Controls - sticky, with mobile Close */}
+        <div
+          className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20"
+          style={{ paddingTop: "env(safe-area-inset-top)" }}
+        >
           <div className="flex items-center gap-2">
             <button
               onClick={goToPreviousPage}
@@ -8889,11 +9321,11 @@ export default function DocumentPreviewModal({
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            
+
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[80px] text-center">
-              {currentPage} / {numPages || '?'}
+              {currentPage} / {numPages || "?"}
             </span>
-            
+
             <button
               onClick={goToNextPage}
               disabled={currentPage >= numPages}
@@ -8904,7 +9336,7 @@ export default function DocumentPreviewModal({
             </button>
           </div>
 
-          {/* Hide on mobile screens */}
+          {/* Desktop tools */}
           <div className="hidden sm:flex items-center gap-2">
             <button
               onClick={zoomOut}
@@ -8913,11 +9345,11 @@ export default function DocumentPreviewModal({
             >
               <ZoomOut className="w-5 h-5" />
             </button>
-            
+
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[60px] text-center">
               {Math.round(scale * 100)}%
             </span>
-            
+
             <button
               onClick={zoomIn}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -8925,9 +9357,9 @@ export default function DocumentPreviewModal({
             >
               <ZoomIn className="w-5 h-5" />
             </button>
-            
+
             <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
-            
+
             <button
               onClick={rotate}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -8936,11 +9368,24 @@ export default function DocumentPreviewModal({
               <RotateCw className="w-5 h-5" />
             </button>
           </div>
+
+          {/* Mobile Close button inside controls */}
+          <button
+            onClick={onClose}
+            className="sm:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            aria-label="Close preview"
+            title="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* PDF Document */}
         <div className="flex-1 overflow-auto p-2 sm:p-4">
-          <div className="flex justify-center">
+          <div
+            ref={pdfContainerRef}
+            className="flex justify-center w-full overflow-x-hidden"
+          >
             <Document
               file={pdfBlob}
               onLoadSuccess={onDocumentLoadSuccess}
@@ -8953,7 +9398,9 @@ export default function DocumentPreviewModal({
               error={
                 <div className="flex flex-col items-center justify-center p-8">
                   <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-                  <p className="text-gray-600 dark:text-gray-400">Failed to load PDF</p>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Failed to load PDF
+                  </p>
                   <button
                     onClick={loadPreview}
                     className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
@@ -8971,15 +9418,17 @@ export default function DocumentPreviewModal({
                 className="shadow-lg max-w-full"
                 renderTextLayer={true}
                 renderAnnotationLayer={true}
-                onLoadSuccess={({ width }) => setPageWidth(width)}
               />
             </Document>
           </div>
         </div>
 
-        {/* Mobile-friendly page navigation */}
+        {/* Mobile-friendly page navigation (bottom) */}
         {numPages > 1 && (
-          <div className="sm:hidden p-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+          <div
+            className="sm:hidden p-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700"
+            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          >
             <div className="flex items-center justify-between">
               <button
                 onClick={goToPreviousPage}
@@ -8988,11 +9437,11 @@ export default function DocumentPreviewModal({
               >
                 Previous
               </button>
-              
+
               <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
                 Page {currentPage} of {numPages}
               </span>
-              
+
               <button
                 onClick={goToNextPage}
                 disabled={currentPage >= numPages}
@@ -9013,7 +9462,9 @@ export default function DocumentPreviewModal({
         <div className="flex items-center justify-center h-96">
           <div className="text-center space-y-4">
             <Loader2 className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin mx-auto" />
-            <p className="text-gray-600 dark:text-gray-400">Loading preview...</p>
+            <p className="text-gray-600 dark:text-gray-400">
+              Loading preview...
+            </p>
           </div>
         </div>
       );
@@ -9039,12 +9490,9 @@ export default function DocumentPreviewModal({
       );
     }
 
-    // For PDFs, use react-pdf
-    if (isPDF) {
-      return renderPDFPreview();
-    }
+    if (isPDF) return renderPDFPreview();
 
-    // For Word documents
+    // Word documents
     if (isWord && convertedContent) {
       return (
         <div className="w-full h-full flex flex-col p-4">
@@ -9058,7 +9506,7 @@ export default function DocumentPreviewModal({
           </div>
           <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg overflow-auto border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
             <div
-              className="prose prose-sm max-w-none dark:prose-invert"
+              className="prose prose-sm max-w-none dark:prose-invert word-preview"
               dangerouslySetInnerHTML={{ __html: convertedContent }}
             />
           </div>
@@ -9066,7 +9514,7 @@ export default function DocumentPreviewModal({
       );
     }
 
-    // For Excel documents
+    // Excel documents
     if (isExcel && excelData) {
       return (
         <div className="w-full h-full flex flex-col p-4">
@@ -9080,15 +9528,19 @@ export default function DocumentPreviewModal({
           </div>
           <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg overflow-auto border border-gray-200 dark:border-gray-700 p-4">
             <div
+              className="excel-preview"
               dangerouslySetInnerHTML={{ __html: excelData.html }}
-              style={{ fontFamily: "system-ui, -apple-system, sans-serif", fontSize: "14px" }}
+              style={{
+                fontFamily: "system-ui, -apple-system, sans-serif",
+                fontSize: "14px",
+              }}
             />
           </div>
         </div>
       );
     }
 
-    // Fallback for unsupported file types
+    // Fallback
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center space-y-4">
@@ -9116,13 +9568,17 @@ export default function DocumentPreviewModal({
 
       {/* Modal */}
       <div
-        className={`relative bg-white dark:bg-gray-900 shadow-2xl border border-gray-200 dark:border-gray-800 flex flex-col transition-all duration-300 ${
+        className={`relative bg-white dark:bg-gray-900 shadow-2xl border border-gray-200 dark:border-gray-800 flex flex-col transition-all duration-300 overflow-hidden ${
           isFullscreen
             ? "w-full h-full max-w-none max-h-none rounded-none"
             : "w-full h-full sm:h-[90vh] sm:max-w-6xl sm:max-h-[800px] sm:rounded-2xl"
         }`}
+        style={{
+          paddingTop: "env(safe-area-inset-top)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
       >
-        {/* Header */}
+        {/* Header (kept for all sizes; visible on mobile too) */}
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" />
@@ -9161,6 +9617,16 @@ export default function DocumentPreviewModal({
 
         {/* Content */}
         <div className="flex-1 overflow-hidden">{renderPreviewContent()}</div>
+
+        {/* Floating Close for small screens (always visible) */}
+        <button
+          onClick={onClose}
+          className="sm:hidden fixed top-3 right-3 z-[60] rounded-full p-2 bg-white/90 dark:bg-gray-900/90 border border-gray-200 dark:border-gray-700 shadow-md"
+          aria-label="Close"
+          title="Close"
+        >
+          <X className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+        </button>
       </div>
     </div>
   );
@@ -9176,7 +9642,12 @@ export default function DocumentPreviewModal({
 import React from "react";
 import { Loader2 } from "lucide-react";
 
-type LoadingButtonVariant = "primary" | "secondary" | "danger" | "success" | "outline";
+type LoadingButtonVariant =
+  | "primary"
+  | "secondary"
+  | "danger"
+  | "success"
+  | "outline";
 type LoadingButtonSize = "sm" | "md" | "lg";
 
 type LoadingButtonProps = {
@@ -9204,40 +9675,46 @@ export default function LoadingButton({
   type = "button",
   onClick,
   icon,
-  loadingIcon
+  loadingIcon,
 }: LoadingButtonProps) {
   const isDisabled = disabled || isLoading;
 
   // Base classes
-  const baseClasses = "inline-flex items-center justify-center gap-2 font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed";
+  const baseClasses =
+    "inline-flex items-center justify-center gap-2 font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed";
 
   // Size classes
   const sizeClasses = {
     sm: "px-3 py-2 text-sm h-9",
     md: "px-6 py-3 text-base h-12",
-    lg: "px-8 py-4 text-lg h-14"
+    lg: "px-8 py-4 text-lg h-14",
   };
 
   // Variant classes
   const variantClasses = {
-    primary: "bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white shadow-sm focus:ring-blue-500",
-    secondary: "bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white shadow-sm focus:ring-gray-500",
-    danger: "bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white shadow-sm focus:ring-red-500",
-    success: "bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white shadow-sm focus:ring-emerald-500",
-    outline: "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 focus:ring-gray-500"
+    primary:
+      "bg-[#1A8B47] hover:bg-[#0F5D2A] disabled:bg-gray-400 text-white shadow-sm focus:ring-[#1A8B47]",
+    secondary:
+      "bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white shadow-sm focus:ring-gray-500",
+    danger:
+      "bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white shadow-sm focus:ring-red-500",
+    success:
+      "bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white shadow-sm focus:ring-emerald-500",
+    outline:
+      "border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-[#1A8B47] dark:hover:border-[#1A8B47] disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400 focus:ring-[#1A8B47]",
   };
 
   // Icon size based on button size
   const iconSize = {
     sm: "w-4 h-4",
-    md: "w-4 h-4", 
-    lg: "w-5 h-5"
+    md: "w-4 h-4",
+    lg: "w-5 h-5",
   };
 
   const combinedClasses = `${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${className}`;
 
-  const displayIcon = isLoading 
-    ? (loadingIcon || <Loader2 className={`${iconSize[size]} animate-spin`} />)
+  const displayIcon = isLoading
+    ? loadingIcon || <Loader2 className={`${iconSize[size]} animate-spin`} />
     : icon;
 
   const displayText = isLoading && loadingText ? loadingText : children;
@@ -9839,6 +10316,7 @@ type ToastContextType = {
     message: string,
     opts?: Omit<ToastOptions, "message" | "variant">
   ) => void;
+  showToast: (message: string, type: "success" | "error") => void;
 };
 
 const ToastContext = createContext<ToastContextType | null>(null);
@@ -9881,6 +10359,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       info: (message, opts) => show({ message, variant: "info", ...opts }),
       warning: (message, opts) =>
         show({ message, variant: "warning", ...opts }),
+      showToast: (message, type) => show({ message, variant: type }),
     }),
     [show]
   );
@@ -9896,20 +10375,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      {/* Toast Container */}
-      <div className="fixed top-4 right-4 z-[1000] space-y-3 pointer-events-none">
+      {/* Toast Container: bottom-right, mobile-friendly */}
+      <div className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-[1000] flex flex-col-reverse gap-3 pointer-events-none">
         {toasts.map((t) => (
           <div
             key={t.id}
             className={
-              "pointer-events-auto min-w-[260px] max-w-[360px] rounded-xl border p-4 shadow-lg text-sm " +
+              "pointer-events-auto max-w-[90vw] sm:max-w-[360px] rounded-xl border p-4 shadow-lg text-sm text-white " +
               (t.variant === "success"
-                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200"
+                ? "bg-[#1A8B47] border-transparent"
                 : t.variant === "error"
-                ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200"
+                ? "bg-red-600 dark:bg-red-500 border-transparent"
                 : t.variant === "warning"
-                ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200"
-                : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200")
+                ? "bg-amber-600 dark:bg-amber-500 border-transparent"
+                : "bg-[#1A8B47] border-transparent")
             }
             role="status"
           >
@@ -10079,6 +10558,13 @@ export function useNotifications() {
     return () => clearInterval(interval);
   }, []);
 
+  // Refresh immediately when other parts of the app update notifications
+  useEffect(() => {
+    const handler = () => fetchUnreadCount();
+    window.addEventListener("notifications:updated", handler);
+    return () => window.removeEventListener("notifications:updated", handler);
+  }, []);
+
   const fetchUnreadCount = async () => {
     try {
       const response = await api.get("/notifications?unread_only=true");
@@ -10129,9 +10615,22 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      Cookies.remove("access_token");
-      // Use relative path for redirect
-      window.location.href = "/login";
+      const url: string | undefined = error.config?.url;
+      const isAuthRoute =
+        url?.includes("/auth/login") || url?.includes("/auth/signup");
+      const isOnAuthPage =
+        typeof window !== "undefined" &&
+        (window.location.pathname === "/login" ||
+          window.location.pathname === "/signup");
+
+      if (!isAuthRoute) {
+        Cookies.remove("access_token");
+      }
+
+      // Avoid hard redirect when already on auth pages or when the request was the auth call itself
+      if (!isAuthRoute && !isOnAuthPage) {
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   }
