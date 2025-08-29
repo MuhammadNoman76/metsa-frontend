@@ -32,15 +32,15 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 overflow-x-hidden">
       <Sidebar />
       {/* Main content wrapper */}
-      <div className="flex">
+      <div className="flex overflow-x-hidden">
         {/* Spacer div that matches sidebar width */}
         <div className="hidden lg:block w-16 transition-all duration-300 sidebar-spacer" />
 
         {/* Main content */}
-        <main className="flex-1 pt-[60px] lg:pt-0 transition-all duration-300">
+        <main className="flex-1 pt-[60px] lg:pt-0 transition-all duration-300 overflow-x-hidden">
           {children}
         </main>
       </div>

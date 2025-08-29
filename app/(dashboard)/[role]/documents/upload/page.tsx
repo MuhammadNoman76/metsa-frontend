@@ -1,5 +1,3 @@
-// app\(dashboard)\[role]\documents\upload\page.tsx
-
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
@@ -63,22 +61,22 @@ const ModernSelect = ({
         onClick={() => setIsOpen(!isOpen)}
         className="w-full h-12 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-left flex items-center justify-between hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           {Icon && (
-            <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />
           )}
           <span
             className={
               selectedOption
-                ? "text-gray-900 dark:text-white font-medium"
-                : "text-gray-500 dark:text-gray-400"
+                ? "text-gray-900 dark:text-white font-medium truncate"
+                : "text-gray-500 dark:text-gray-400 truncate"
             }
           >
             {selectedOption ? selectedOption.label : placeholder}
           </span>
         </div>
         <ChevronDown
-          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+          className={`w-4 h-4 text-gray-400 transition-transform duration-200 flex-shrink-0 ${
             isOpen ? "rotate-180" : ""
           }`}
         />
@@ -196,16 +194,16 @@ const SearchableMultiSelect = ({
         }}
         className="w-full min-h-12 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-left flex items-center justify-between hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm"
       >
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           {selectedLabels.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {selectedLabels.slice(0, 3).map((label, index) => (
                 <span
                   key={index}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium rounded-lg"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium rounded-lg break-words"
                 >
                   <UserPlus className="w-3 h-3" />
-                  {label}
+                  <span className="truncate">{label}</span>
                 </span>
               ))}
               {selectedLabels.length > 3 && (
@@ -303,7 +301,7 @@ const SearchableMultiSelect = ({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-900 dark:text-white font-medium">
+                          <span className="text-gray-900 dark:text-white font-medium truncate">
                             {option.label}
                           </span>
                           {option.email && (
@@ -526,12 +524,11 @@ export default function DocumentUploadPage() {
       String(formData.is_viewable_only)
     );
 
-    // FIX: Send assigned_customers as comma-separated string, not JSON
+    // Send assigned_customers as comma-separated string if any selected
     if (
       formData.visibility === DocumentVisibility.PRIVATE &&
       formData.assigned_customers.length > 0
     ) {
-      // Send as comma-separated string instead of JSON
       formDataToSend.append(
         "assigned_customers",
         formData.assigned_customers.join(",")
@@ -609,14 +606,7 @@ export default function DocumentUploadPage() {
       return;
     }
 
-    // Additional validation for private documents
-    if (
-      formData.visibility === DocumentVisibility.PRIVATE &&
-      formData.assigned_customers.length === 0
-    ) {
-      toast.error("Please select at least one customer for private documents");
-      return;
-    }
+    // Removed restriction: allow private documents without assigned users
 
     setIsUploading(true);
     setUploadProgress(
@@ -669,9 +659,9 @@ export default function DocumentUploadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 overflow-x-hidden">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30">
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30 overflow-x-hidden">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           <div className="flex items-center gap-3 sm:gap-4">
             <button
@@ -698,7 +688,7 @@ export default function DocumentUploadPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 overflow-x-hidden">
         <div className="space-y-8">
           {/* File Upload Area */}
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
@@ -760,8 +750,8 @@ export default function DocumentUploadPage() {
                           key={index}
                           className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700"
                         >
-                          <div className="flex items-center space-x-3 flex-1">
-                            <FileText className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                          <div className="flex items-center space-x-3 flex-1 min-w-0">
+                            <FileText className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                                 {file.name}
@@ -773,7 +763,7 @@ export default function DocumentUploadPage() {
                                 <div className="mt-2">
                                   {progress.status === "uploading" && (
                                     <div className="flex items-center space-x-2">
-                                      <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                      <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
                                         <div
                                           className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                                           style={{
@@ -957,7 +947,7 @@ export default function DocumentUploadPage() {
                         {formData.visibility === DocumentVisibility.PRIVATE && (
                           <span>
                             <strong>Private:</strong> Only assigned users can
-                            access
+                            access (you can leave empty and assign later)
                           </span>
                         )}
                         {formData.visibility ===
@@ -994,7 +984,9 @@ export default function DocumentUploadPage() {
                     </div>
                     <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
                       Access Control
-                      <span className="text-red-500 ml-1">*</span>
+                      <span className="text-gray-500 ml-2 text-sm font-normal">
+                        (Optional)
+                      </span>
                     </h2>
                   </div>
                   {customers.length > 0 && (
@@ -1008,9 +1000,6 @@ export default function DocumentUploadPage() {
                 <div className="space-y-3">
                   <label className="block text-sm font-semibold text-gray-900 dark:text-white">
                     Authorized Customers
-                    <span className="text-red-500 ml-1">
-                      Required for private documents
-                    </span>
                   </label>
                   <SearchableMultiSelect
                     selected={formData.assigned_customers}
@@ -1030,8 +1019,9 @@ export default function DocumentUploadPage() {
                       <p className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">
                         {formData.assigned_customers.length === 0 ? (
                           <span>
-                            Please select at least one customer who can access
-                            this private document.
+                            You can optionally select customers who can access
+                            this private document. If none are selected, no
+                            customers will have access until you assign them.
                           </span>
                         ) : (
                           <span>

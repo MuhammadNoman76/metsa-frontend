@@ -10,6 +10,13 @@
   .dark {
     color-scheme: dark;
   }
+
+  /* Prevent horizontal scrolling on mobile */
+  html,
+  body {
+    overflow-x: hidden;
+    width: 100%;
+  }
 }
 
 /* Smooth transitions only after page loads */
@@ -40,13 +47,36 @@ html.mounted * {
   .react-pdf__Page {
     width: 100% !important;
   }
-  
+
   .react-pdf__Page__textContent {
     width: 100% !important;
   }
-  
+
   .react-pdf__Page__annotations {
     width: 100% !important;
   }
 }
 
+/* Ensure Word/Excel previews are responsive and do not overflow */
+.word-preview,
+.excel-preview {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.word-preview img,
+.excel-preview img {
+  max-width: 100%;
+  height: auto;
+}
+
+.excel-preview table {
+  width: 100% !important;
+  max-width: 100% !important;
+  border-collapse: collapse;
+}
+
+.excel-preview table td,
+.excel-preview table th {
+  word-break: break-word;
+}

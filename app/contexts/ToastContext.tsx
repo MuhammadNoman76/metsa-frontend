@@ -40,6 +40,7 @@ type ToastContextType = {
     message: string,
     opts?: Omit<ToastOptions, "message" | "variant">
   ) => void;
+  showToast: (message: string, type: "success" | "error") => void;
 };
 
 const ToastContext = createContext<ToastContextType | null>(null);
@@ -82,6 +83,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       info: (message, opts) => show({ message, variant: "info", ...opts }),
       warning: (message, opts) =>
         show({ message, variant: "warning", ...opts }),
+      showToast: (message, type) => show({ message, variant: type }),
     }),
     [show]
   );

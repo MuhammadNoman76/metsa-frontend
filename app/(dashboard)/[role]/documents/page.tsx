@@ -423,17 +423,16 @@ export default function DocumentsPage() {
     }
   };
 
-const handlePreview = (doc: Document) => {
-  setPreviewModal({
-    isOpen: true,
-    documentId: doc.id,
-    documentTitle: doc.title,
-    fileName: doc.file_name,
-    mimeType: doc.mime_type,
-    canDownload: false, // Always false to disable download
-  });
-};
-
+  const handlePreview = (doc: Document) => {
+    setPreviewModal({
+      isOpen: true,
+      documentId: doc.id,
+      documentTitle: doc.title,
+      fileName: doc.file_name,
+      mimeType: doc.mime_type,
+      canDownload: false, // Always false to disable download
+    });
+  };
 
   const handleEdit = (doc: Document) => {
     router.push(`/${user?.role}/documents/${doc.id}/edit`);
@@ -637,7 +636,7 @@ const handlePreview = (doc: Document) => {
 
         {/* RIGHT: Status, Meta, Actions */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-4 md:gap-6 w-full md:w-auto">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 md:flex-1">
             <span
               className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border ${getCategoryColor(
                 doc.category
@@ -664,14 +663,16 @@ const handlePreview = (doc: Document) => {
             )}
           </div>
 
-          <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-col items-start md:items-end">
-            <span>Size: {formatFileSize(doc.file_size)}</span>
-            <span>
+          <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-col items-start md:items-end md:text-right whitespace-nowrap flex-shrink-0 md:min-w-[180px]">
+            <span className="whitespace-nowrap">
+              Size: {formatFileSize(doc.file_size)}
+            </span>
+            <span className="whitespace-nowrap">
               Updated: {format(new Date(doc.updated_at), "MMM dd, yyyy")}
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
             <button
               onClick={() => handlePreview(doc)}
               className="inline-flex items-center justify-center gap-1.5 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -751,8 +752,14 @@ const handlePreview = (doc: Document) => {
               </div>
             </div>
 
-            <div className="w-full lg:w-auto grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-              <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 border border-gray-200 dark:border-gray-700">
+            <div
+              className={`${
+                canEdit
+                  ? "w-full lg:w-auto grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3"
+                  : "w-full lg:w-auto flex justify-end"
+              }`}
+            >
+              <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 border border-gray-200 dark:border-gray-700 min-w-[112px]">
                 <button
                   onClick={() => setViewMode("grid")}
                   className={`h-9 sm:h-10 flex-1 rounded-lg flex items-center justify-center transition-all duration-200 ${
@@ -785,7 +792,7 @@ const handlePreview = (doc: Document) => {
                   className="inline-flex items-center justify-center gap-2 h-11 sm:h-12 px-4 sm:px-6 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all duration-200 shadow-sm"
                 >
                   <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="text-sm sm:text-base">Upload</span>
+                  <span className="text-sm sm:text-base">Add Upload</span>
                 </button>
               )}
             </div>
