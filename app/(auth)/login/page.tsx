@@ -193,7 +193,7 @@ export default function LoginPage() {
             Sign in to MyMetsa
           </h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Secure access to your documents portal
+            Secure access to your Metsa portal
           </p>
         </div>
 
@@ -331,7 +331,8 @@ export default function LoginPage() {
                 isLoading={isLoading}
                 loadingText="Signing you in..."
                 size="lg"
-                className="group relative w-full h-12 bg-[#1A8B47] hover:bg-[#0F5D2A] disabled:bg-gray-400 text-white font-semibold rounded-xl"
+                variant="primary"
+                className="group relative w-full h-12 rounded-xl"
                 icon={
                   !isLoading ? <ArrowRight className="w-5 h-5" /> : undefined
                 }

@@ -107,12 +107,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             className={
               "pointer-events-auto max-w-[90vw] sm:max-w-[360px] rounded-xl border p-4 shadow-lg text-sm text-white " +
               (t.variant === "success"
-                ? "bg-emerald-600 dark:bg-emerald-500 border-transparent"
+                ? "bg-[#1A8B47] border-transparent"
                 : t.variant === "error"
                 ? "bg-red-600 dark:bg-red-500 border-transparent"
                 : t.variant === "warning"
                 ? "bg-amber-600 dark:bg-amber-500 border-transparent"
-                : "bg-blue-600 dark:bg-blue-500 border-transparent")
+                : "bg-[#1A8B47] border-transparent")
             }
             role="status"
           >

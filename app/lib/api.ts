@@ -1,9 +1,24 @@
 import axios from "axios";
 import Cookies from "js-cookie";
 
-// In development, use the full URL. In production (static export), use relative paths
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+// Resolve API base URL and normalize to HTTPS when app runs over HTTPS to avoid mixed-content
+function resolveApiBaseUrl(): string | undefined {
+  let url = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (!url) return undefined;
+  // Remove accidental leading characters (e.g., '@https://...')
+  url = url.replace(/^@+/, "");
+  // If the site is served over HTTPS and URL is http://, upgrade to https:// to avoid mixed content
+  if (
+    typeof window !== "undefined" &&
+    window.location.protocol === "https:" &&
+    url.startsWith("http://")
+  ) {
+    url = "https://" + url.replace(/^http:\/\//, "");
+  }
+  return url;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,

@@ -634,7 +634,8 @@ export default function SignupPage() {
                 isLoading={isLoading}
                 loadingText="Creating account..."
                 size="lg"
-                className="group relative w-full h-12 bg-[#1A8B47] hover:bg-[#0F5D2A] disabled:bg-gray-400 text-white font-semibold rounded-xl"
+                variant="primary"
+                className="group relative w-full h-12 rounded-xl"
                 icon={!isLoading ? <UserPlus className="w-5 h-5" /> : undefined}
               >
                 Create Account
