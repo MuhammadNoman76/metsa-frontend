@@ -40,6 +40,14 @@ export default eslintConfig;
 const nextConfig = {
   // Removed 'output: "export"' to allow dynamic routing
   // The app needs server-side capabilities for dynamic document IDs
+  webpack: (config: any) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      canvas: false,
+      encoding: false,
+    };
+    return config;
+  },
 };
 
 module.exports = nextConfig;
@@ -100,9 +108,11 @@ module.exports = nextConfig;
     "mammoth": "^1.10.0",
     "next": "15.4.1",
     "next-themes": "^0.4.6",
+    "pdfjs-dist": "^3.11.174",
     "react": "19.1.0",
     "react-day-picker": "^9.8.1",
     "react-dom": "19.1.0",
+    "react-pdf": "^7.7.1",
     "react-resizable-panels": "^3.0.4",
     "recharts": "^3.1.2",
     "tailwind-merge": "^3.3.1",
@@ -115,8 +125,8 @@ module.exports = nextConfig;
     "@tailwindcss/postcss": "^4",
     "@types/js-cookie": "^3.0.6",
     "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "@types/react": "^18.3.24",
+    "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.16",
     "cross-env": "^10.0.0",
     "eslint": "^9",
@@ -205,6 +215,13 @@ module.exports = {
 
 ```
 
+## .vscode\settings.json
+
+```json
+{
+}
+```
+
 ## app\globals.css
 
 ```css
@@ -226,6 +243,40 @@ module.exports = {
 html.mounted * {
   @apply transition-colors duration-300;
 }
+
+/* PDF viewer styles for mobile optimization */
+.react-pdf__Document {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.react-pdf__Page {
+  max-width: 100%;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+}
+
+.react-pdf__Page canvas {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* Mobile specific optimizations */
+@media (max-width: 768px) {
+  .react-pdf__Page {
+    width: 100% !important;
+  }
+  
+  .react-pdf__Page__textContent {
+    width: 100% !important;
+  }
+  
+  .react-pdf__Page__annotations {
+    width: 100% !important;
+  }
+}
+
 
 ```
 
@@ -297,10 +348,10 @@ export default function RootLayout({
 ## app\loading.tsx
 
 ```typescript
-import LoadingPage from "@/components/LoadingPage";
+import SimpleLoading from "@/components/SimpleLoading";
 
 export default function RootLoading() {
-  return <LoadingPage variant="root" />;
+  return <SimpleLoading message="Loading..." />;
 }
 
 ```
@@ -308,12 +359,12 @@ export default function RootLoading() {
 ## app\page.tsx
 
 ```typescript
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import Spinner from '@/components/Spinner';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import Spinner from "@/components/Spinner";
 
 export default function RootPage() {
   const router = useRouter();
@@ -326,7 +377,7 @@ export default function RootPage() {
         router.replace(`/${user.role}/documents`);
       } else {
         // If not logged in, redirect to login page
-        router.replace('/login');
+        router.replace("/login");
       }
     }
   }, [user, isLoading, router]);
@@ -335,8 +386,13 @@ export default function RootPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
       <div className="text-center">
-        <Spinner size={64} variant="ring" color="primary" className="mx-auto mb-4" />
-        <p className="text-gray-600 font-medium">Loading...</p>
+        <Spinner
+          size={64}
+          variant="ring"
+          color="primary"
+          className="mx-auto mb-4"
+        />
+        <p className="text-gray-600 dark:text-gray-400">Loading...</p>
       </div>
     </div>
   );
@@ -364,10 +420,10 @@ export default function AuthLayout({
 ## app\(auth)\loading.tsx
 
 ```typescript
-import LoadingPage from "@/components/LoadingPage";
+import SimpleLoading from "@/components/SimpleLoading";
 
 export default function AuthLoading() {
-  return <LoadingPage variant="auth" />;
+  return <SimpleLoading message="Loading..." />;
 }
 
 ```
@@ -394,13 +450,17 @@ import {
   XCircle,
   Clock,
   UserPlus,
+  Mail,
+  AtSign,
+  Droplets,
+  Shield,
 } from "lucide-react";
 import LoadingButton from "@/components/LoadingButton";
 import { useToast } from "@/contexts/ToastContext";
 import { useTheme } from "@/contexts/ThemeContext";
 
 export default function LoginPage() {
-  const [username, setUsername] = useState("");
+  const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [errorType, setErrorType] = useState<"error" | "pending" | "rejected">(
@@ -412,14 +472,19 @@ export default function LoginPage() {
   const toast = useToast();
   const { setTheme, resolvedTheme } = useTheme();
 
+  // Check if input is email or username
+  const isEmail = (input: string) => {
+    return input.includes("@") && input.includes(".");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
     try {
-      await login(username, password);
-      toast.success("Signed in successfully");
+      // The login function will accept either username or email
+      await login(usernameOrEmail, password);
     } catch (err) {
       const axiosErr = err as {
         response?: { data?: { detail?: string }; status?: number };
@@ -444,7 +509,9 @@ export default function LoginPage() {
       } else {
         setErrorType("error");
         const friendly =
-          typeof msg === "string" ? msg : "Invalid username or password";
+          typeof msg === "string"
+            ? msg
+            : "Invalid credentials. Please check your username/email and password.";
         setError(friendly);
       }
 
@@ -514,50 +581,81 @@ export default function LoginPage() {
     }
   };
 
+  // Dynamic icon based on input type
+  const getInputIcon = () => {
+    if (isEmail(usernameOrEmail)) {
+      return (
+        <Mail className="w-5 h-5 text-gray-400 dark:text-gray-500 group-focus-within:text-[#1A8B47] dark:group-focus-within:text-[#4FBF7C] transition-colors duration-200" />
+      );
+    }
+    return (
+      <User className="w-5 h-5 text-gray-400 dark:text-gray-500 group-focus-within:text-[#1A8B47] dark:group-focus-within:text-[#4FBF7C] transition-colors duration-200" />
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center p-4 transition-colors duration-500">
-      {/* Background Pattern */}
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center p-4 transition-colors duration-500">
+      {/* Enhanced METSA Background Pattern with geometric shapes */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-32 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-400/20 dark:from-blue-600/10 dark:to-purple-600/10 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-32 w-80 h-80 bg-gradient-to-br from-emerald-400/20 to-blue-400/20 dark:from-emerald-600/10 dark:to-blue-600/10 rounded-full blur-3xl"></div>
+        {/* Primary green gradient orbs */}
+        <div className="absolute top-10 right-20 w-96 h-96 bg-gradient-radial from-[#1A8B47]/30 via-[#1A8B47]/15 to-transparent rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 left-10 w-80 h-80 bg-gradient-radial from-[#4FBF7C]/25 via-[#4FBF7C]/10 to-transparent rounded-full blur-3xl"></div>
+        
+        {/* Secondary accent orbs */}
+        <div className="absolute top-1/2 left-1/4 w-64 h-64 bg-gradient-radial from-[#90C695]/20 via-[#90C695]/8 to-transparent rounded-full blur-2xl"></div>
+        <div className="absolute top-1/4 right-1/4 w-72 h-72 bg-gradient-radial from-[#1A8B47]/15 via-transparent to-transparent rounded-full blur-2xl"></div>
+        
+        {/* Geometric accent shapes */}
+        <div className="absolute top-20 left-1/3 w-32 h-32 bg-gradient-to-br from-[#1A8B47]/20 to-transparent transform rotate-45 blur-xl"></div>
+        <div className="absolute bottom-32 right-1/3 w-24 h-24 bg-gradient-to-br from-[#4FBF7C]/25 to-transparent transform rotate-12 blur-lg"></div>
+        
+        {/* Subtle grid pattern overlay */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(26,139,71,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(26,139,71,0.03)_1px,transparent_1px)] bg-[size:50px_50px] dark:bg-[linear-gradient(rgba(79,191,124,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(79,191,124,0.02)_1px,transparent_1px)]"></div>
       </div>
 
       {/* Theme Toggle Button */}
       <button
         onClick={toggleTheme}
-        className="absolute top-6 right-6 p-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+        className="absolute top-6 right-6 p-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/60 dark:border-gray-700/60 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group"
         aria-label="Toggle theme"
       >
         {resolvedTheme === "dark" ? (
-          <Sun className="w-5 h-5 text-yellow-500" />
+          <Sun className="w-5 h-5 text-yellow-500 group-hover:rotate-180 transition-transform duration-300" />
         ) : (
-          <Moon className="w-5 h-5 text-gray-700" />
+          <Moon className="w-5 h-5 text-gray-700 group-hover:-rotate-12 transition-transform duration-300" />
         )}
       </button>
 
-      <div className="relative w-full max-w-md">
+      <div className="relative w-full max-w-md z-10">
         {/* Header */}
-        <div className="text-center mb-8">
-          <Image
-            src="/metsa_logo.png"
-            alt="Metsa Logo"
-            width={180}
-            height={50}
-            className="mx-auto"
-            priority
-          />
-          <h1 className="mt-8 text-4xl font-bold text-gray-900 dark:text-white transition-colors duration-300">
+        <div className="text-center mb-10">
+          <div className="relative mx-auto w-[200px] h-[80px] mb-8 drop-shadow-lg">
+            <Image
+              src="/metsa_logo.png"
+              alt="METSA Logo"
+              fill
+              className="object-contain filter drop-shadow-md"
+              priority
+            />
+          </div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-[#1A8B47] to-gray-900 dark:from-white dark:via-[#4FBF7C] dark:to-white bg-clip-text text-transparent transition-colors duration-300 mb-2">
             Welcome Back
           </h1>
-          <p className="mt-3 text-lg text-gray-600 dark:text-gray-400 transition-colors duration-300">
-            Sign in to access your document portal
+          <p className="text-lg text-gray-600 dark:text-gray-400 transition-colors duration-300 font-medium">
+            Access your underground tank solutions portal
           </p>
+          <div className="mt-4 flex items-center justify-center gap-2 text-sm text-[#1A8B47] dark:text-[#4FBF7C] font-semibold">
+            <Droplets className="w-4 h-4" />
+            <span>Pioneering Excellence in Underground Tank Solutions</span>
+          </div>
         </div>
 
         {/* Login Card */}
-        <div className="relative">
-          <div className="absolute inset-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-3xl shadow-2xl"></div>
-          <div className="relative bg-white/70 dark:bg-gray-900/70 backdrop-blur-2xl border border-gray-200/20 dark:border-gray-700/30 rounded-3xl shadow-2xl p-8 transition-all duration-300">
+        <div className="relative group">
+          {/* Card glow effect */}
+          <div className="absolute -inset-1 bg-gradient-to-r from-[#1A8B47]/20 via-[#4FBF7C]/20 to-[#90C695]/20 rounded-3xl blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
+          
+          <div className="relative bg-white/80 dark:bg-gray-900/80 backdrop-blur-2xl border border-gray-200/40 dark:border-gray-700/40 rounded-3xl shadow-2xl p-8 transition-all duration-300">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Error Message */}
               {error && (
@@ -588,29 +686,33 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* Username Field */}
+              {/* Username/Email Field */}
               <div className="space-y-2">
                 <label
-                  htmlFor="username"
+                  htmlFor="usernameOrEmail"
                   className="block text-sm font-semibold text-gray-900 dark:text-gray-100 transition-colors duration-300"
                 >
-                  Username
+                  Username or Email
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <User className="w-5 h-5 text-gray-400 dark:text-gray-500 group-focus-within:text-blue-500 dark:group-focus-within:text-blue-400 transition-colors duration-200" />
+                    {getInputIcon()}
                   </div>
                   <input
-                    id="username"
+                    id="usernameOrEmail"
                     type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="w-full h-14 pl-12 pr-4 bg-white/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 shadow-sm backdrop-blur-xl hover:bg-white/70 dark:hover:bg-gray-800/70"
-                    placeholder="Enter your username"
+                    value={usernameOrEmail}
+                    onChange={(e) => setUsernameOrEmail(e.target.value)}
+                    className="w-full h-14 pl-12 pr-4 bg-white/60 dark:bg-gray-800/60 border-2 border-gray-300/50 dark:border-gray-700/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] dark:focus:ring-[#4FBF7C] focus:border-[#1A8B47] dark:focus:border-[#4FBF7C] text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 shadow-sm backdrop-blur-xl hover:bg-white/80 dark:hover:bg-gray-800/80 hover:border-[#1A8B47]/50 dark:hover:border-[#4FBF7C]/50"
+                    placeholder="Username or email@example.com"
                     required
-                    autoComplete="username"
+                    autoComplete="username email"
                   />
                 </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                  <AtSign className="w-3 h-3" />
+                  You can sign in using either your username or email address
+                </p>
               </div>
 
               {/* Password Field */}
@@ -623,14 +725,14 @@ export default function LoginPage() {
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="w-5 h-5 text-gray-400 dark:text-gray-500 group-focus-within:text-blue-500 dark:group-focus-within:text-blue-400 transition-colors duration-200" />
+                    <Lock className="w-5 h-5 text-gray-400 dark:text-gray-500 group-focus-within:text-[#1A8B47] dark:group-focus-within:text-[#4FBF7C] transition-colors duration-200" />
                   </div>
                   <input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full h-14 pl-12 pr-12 bg-white/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 shadow-sm backdrop-blur-xl hover:bg-white/70 dark:hover:bg-gray-800/70"
+                    className="w-full h-14 pl-12 pr-12 bg-white/60 dark:bg-gray-800/60 border-2 border-gray-300/50 dark:border-gray-700/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] dark:focus:ring-[#4FBF7C] focus:border-[#1A8B47] dark:focus:border-[#4FBF7C] text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 shadow-sm backdrop-blur-xl hover:bg-white/80 dark:hover:bg-gray-800/80 hover:border-[#1A8B47]/50 dark:hover:border-[#4FBF7C]/50"
                     placeholder="Enter your password"
                     required
                     autoComplete="current-password"
@@ -638,7 +740,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200"
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 dark:text-gray-500 hover:text-[#1A8B47] dark:hover:text-[#4FBF7C] transition-colors duration-200"
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
                     }
@@ -658,69 +760,84 @@ export default function LoginPage() {
                   <input
                     id="remember-me"
                     type="checkbox"
-                    className="h-4 w-4 text-blue-600 dark:text-blue-500 bg-white/50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2 transition-all duration-200"
+                    className="h-4 w-4 text-[#1A8B47] dark:text-[#4FBF7C] bg-white/60 dark:bg-gray-800/60 border-gray-300 dark:border-gray-600 rounded focus:ring-[#1A8B47] dark:focus:ring-[#4FBF7C] focus:ring-2 transition-all duration-200"
                   />
                   <label
                     htmlFor="remember-me"
-                    className="ml-3 text-sm text-gray-700 dark:text-gray-300 transition-colors duration-300"
+                    className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-300"
                   >
                     Remember me
                   </label>
                 </div>
                 <button
                   type="button"
-                  className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 transition-colors duration-200"
+                  className="text-sm font-semibold text-[#1A8B47] dark:text-[#4FBF7C] hover:text-[#0F5D2A] dark:hover:text-[#6FD293] transition-colors duration-200 underline-offset-4 hover:underline"
                 >
                   Forgot password?
                 </button>
               </div>
 
-              {/* Submit Button */}
+              {/* Security Info - METSA themed */}
+              <div className="p-4 bg-gradient-to-r from-[#1A8B47]/10 via-[#4FBF7C]/10 to-[#90C695]/10 dark:from-[#1A8B47]/20 dark:via-[#4FBF7C]/20 dark:to-[#90C695]/20 border-2 border-[#1A8B47]/20 dark:border-[#4FBF7C]/30 rounded-2xl backdrop-blur-sm">
+                <div className="flex items-center gap-3 text-sm text-[#0F5D2A] dark:text-[#4FBF7C]">
+                  <Shield className="w-5 h-5 flex-shrink-0" />
+                  <span className="font-semibold">
+                    Secure access to your tank management portal
+                  </span>
+                </div>
+              </div>
+
+              {/* Submit Button - Enhanced METSA Green */}
               <LoadingButton
                 type="submit"
                 isLoading={isLoading}
                 loadingText="Signing you in..."
                 size="lg"
-                className="group relative w-full bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-500 dark:to-purple-500 hover:from-blue-700 hover:to-purple-700 dark:hover:from-blue-600 dark:hover:to-purple-600 disabled:from-gray-400 disabled:to-gray-500 dark:disabled:from-gray-600 dark:disabled:to-gray-700 text-white font-semibold rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl dark:shadow-blue-500/25 dark:hover:shadow-blue-500/40"
+                className="group relative w-full h-14 bg-gradient-to-r from-[#1A8B47] to-[#0F5D2A] hover:from-[#0F5D2A] hover:to-[#1A8B47] dark:from-[#1A8B47] dark:to-[#4FBF7C] dark:hover:from-[#4FBF7C] dark:hover:to-[#1A8B47] disabled:from-gray-400 disabled:to-gray-500 dark:disabled:from-gray-600 dark:disabled:to-gray-700 text-white font-bold text-lg rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-[1.02] transform"
                 icon={
                   !isLoading ? (
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
+                    <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform duration-200" />
                   ) : undefined
                 }
               >
                 Sign In
               </LoadingButton>
 
-              {/* Signup Link */}
-              <div className="relative">
+              {/* Divider */}
+              <div className="relative my-8">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
+                  <div className="w-full border-t-2 border-gray-300 dark:border-gray-700"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-white/70 dark:bg-gray-900/70 text-gray-600 dark:text-gray-400">
+                  <span className="px-6 py-2 bg-white/80 dark:bg-gray-900/80 text-gray-600 dark:text-gray-400 font-semibold rounded-full backdrop-blur-sm border border-gray-200 dark:border-gray-700">
                     New to METSA?
                   </span>
                 </div>
               </div>
 
+              {/* Signup Link - Enhanced METSA themed */}
               <Link
                 href="/signup"
-                className="group flex items-center justify-center gap-2 w-full px-6 py-3 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-200 shadow-sm"
+                className="group flex items-center justify-center gap-3 w-full h-14 px-6 py-3 bg-white dark:bg-gray-800 border-2 border-[#1A8B47]/40 dark:border-[#4FBF7C]/40 text-gray-700 dark:text-gray-300 font-bold text-lg rounded-2xl hover:bg-gradient-to-r hover:from-[#1A8B47]/10 hover:to-[#4FBF7C]/10 dark:hover:from-[#1A8B47]/20 dark:hover:to-[#4FBF7C]/20 hover:border-[#1A8B47] dark:hover:border-[#4FBF7C] transition-all duration-300 shadow-lg hover:shadow-xl backdrop-blur-sm hover:scale-[1.02] transform"
               >
-                <UserPlus className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
+                <UserPlus className="w-6 h-6 text-[#1A8B47] dark:text-[#4FBF7C] group-hover:scale-110 transition-transform duration-200" />
                 Create New Account
               </Link>
             </form>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-gray-600 dark:text-gray-400 transition-colors duration-300">
+        {/* Enhanced Footer */}
+        <div className="text-center mt-10 space-y-4">
+          <div className="flex items-center justify-center gap-2 text-base font-semibold text-[#1A8B47] dark:text-[#4FBF7C]">
+            <Droplets className="w-5 h-5" />
+            <span>Innovating New Industry Standards</span>
+          </div>
+          <p className="text-gray-600 dark:text-gray-400 transition-colors duration-300 font-medium">
             Need help?{" "}
             <a
               href="#"
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 font-medium transition-colors duration-200"
+              className="text-[#1A8B47] dark:text-[#4FBF7C] hover:text-[#0F5D2A] dark:hover:text-[#6FD293] font-bold transition-colors duration-200 underline-offset-4 hover:underline"
             >
               Contact our support team
             </a>{" "}
@@ -731,7 +848,6 @@ export default function LoginPage() {
     </div>
   );
 }
-
 ```
 
 ## app\(auth)\signup\page.tsx
@@ -766,6 +882,19 @@ import LoadingButton from "@/components/LoadingButton";
 import { useToast } from "@/contexts/ToastContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { UserRole } from "@/types";
+
+// Define proper type for signup data
+interface SignupData {
+  email: string;
+  username: string;
+  password: string;
+  role: UserRole;
+  customer_info?: {
+    company: string;
+    phone: string;
+    address: string;
+  };
+}
 
 export default function SignupPage() {
   const router = useRouter();
@@ -843,7 +972,7 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      const signupData: any = {
+      const signupData: SignupData = {
         email: formData.email,
         username: formData.username,
         password: formData.password,
@@ -1325,7 +1454,7 @@ export default function SignupPage() {
                     </p>
                     <p className="text-xs leading-relaxed">
                       After signup, your account will need to be approved by an
-                      administrator before you can access the system. You'll
+                      administrator before you can access the system. You{"'"}ll
                       receive an email notification once approved.
                     </p>
                   </div>
@@ -1402,24 +1531,24 @@ export default function SignupPage() {
 ## app\(dashboard)\layout.tsx
 
 ```typescript
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import Sidebar from './components/Sidebar';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import Sidebar from "./components/Sidebar";
 
 export default function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push('/login');
+      router.push("/login");
     }
   }, [user, isLoading, router]);
 
@@ -1436,13 +1565,25 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto">
+      {/* Main content wrapper */}
+      <div className="flex">
+        {/* Spacer div that matches sidebar width */}
+        <div className="hidden lg:block w-16 transition-all duration-300 sidebar-spacer" />
+
+        {/* Main content */}
+        <main className="flex-1 pt-[60px] lg:pt-0 transition-all duration-300">
           {children}
         </main>
       </div>
+
+      {/* Add this style tag */}
+      <style jsx>{`
+        :global(aside:not(.w-16)) ~ div .sidebar-spacer {
+          width: 16rem; /* 256px = w-64 */
+        }
+      `}</style>
     </div>
   );
 }
@@ -1452,10 +1593,10 @@ export default function DashboardLayout({
 ## app\(dashboard)\loading.tsx
 
 ```typescript
-import LoadingPage from "@/components/LoadingPage";
+import SimpleLoading from "@/components/SimpleLoading";
 
 export default function DashboardLoading() {
-  return <LoadingPage variant="dashboard" showProgressItems={true} />;
+  return <SimpleLoading message="Loading..." />;
 }
 
 ```
@@ -1480,8 +1621,6 @@ import {
   Save,
   AlertCircle,
   Users,
-  Mail,
-  Calendar,
   Eye,
   EyeOff,
   ChevronDown,
@@ -1493,6 +1632,10 @@ import {
 import api from "@/lib/api";
 import { User, UserRole } from "@/types";
 import { format } from "date-fns";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import SimpleLoading from "@/components/SimpleLoading";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/contexts/ToastContext";
 
 /* Hook: auto-hide on scroll (down hides, up shows) */
 function useAutoHideHeader(offsetPx = 24, minDelta = 6) {
@@ -1534,12 +1677,14 @@ const ModernSelect = ({
   options,
   placeholder,
   icon: Icon,
+  disabled = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   placeholder?: string;
   icon?: ElementType;
+  disabled?: boolean;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const selectedOption = options.find((opt) => opt.value === value);
@@ -1557,8 +1702,11 @@ const ModernSelect = ({
     <div className="relative">
       <button
         type="button"
-        onClick={() => setIsOpen((o) => !o)}
-        className="w-full h-11 sm:h-12 px-3 sm:px-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-left flex items-center justify-between hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm"
+        onClick={() => !disabled && setIsOpen((o) => !o)}
+        disabled={disabled}
+        className={`w-full h-11 sm:h-12 px-3 sm:px-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-left flex items-center justify-between hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm ${
+          disabled ? "opacity-50 cursor-not-allowed" : ""
+        }`}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label="Open select"
@@ -1584,7 +1732,7 @@ const ModernSelect = ({
         />
       </button>
 
-      {isOpen && (
+      {isOpen && !disabled && (
         <>
           <button
             className="fixed inset-0 z-30 cursor-default"
@@ -1631,14 +1779,20 @@ const ModernToggle = ({
   onChange,
   label,
   description,
+  disabled = false,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label: string;
   description?: string;
+  disabled?: boolean;
 }) => {
   return (
-    <div className="flex items-start justify-between p-4 sm:p-5 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200">
+    <div
+      className={`flex items-start justify-between p-4 sm:p-5 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 ${
+        disabled ? "opacity-50" : ""
+      }`}
+    >
       <div className="flex-1 min-w-0 mr-4">
         <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
           {label}
@@ -1651,12 +1805,13 @@ const ModernToggle = ({
       </div>
       <button
         type="button"
-        onClick={() => onChange(!checked)}
+        onClick={() => !disabled && onChange(!checked)}
+        disabled={disabled}
         className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
           checked
             ? "bg-blue-600 dark:bg-blue-500"
             : "bg-gray-300 dark:bg-gray-600"
-        }`}
+        } ${disabled ? "cursor-not-allowed" : ""}`}
         aria-pressed={checked}
         aria-label="Toggle"
       >
@@ -1669,26 +1824,6 @@ const ModernToggle = ({
     </div>
   );
 };
-
-/* Loading Overlay */
-const LoadingOverlay = ({ message }: { message: string }) => (
-  <div className="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-    <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 sm:p-8 shadow-2xl border border-gray-200 dark:border-gray-800 max-w-sm w-full">
-      <div className="text-center space-y-4">
-        <div className="relative w-12 h-12 mx-auto">
-          <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-700 rounded-full" />
-          <div className="absolute inset-0 border-4 border-blue-600 dark:border-blue-400 rounded-full border-t-transparent animate-spin" />
-        </div>
-        <div className="space-y-2">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Processing
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400">{message}</p>
-        </div>
-      </div>
-    </div>
-  </div>
-);
 
 /* Modal (Escape to close) */
 const ModernModal = ({
@@ -1764,7 +1899,7 @@ const ConfirmDialog = ({
             {message}
           </p>
         </div>
-        <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end">
+        <div className="flex flex-col-reverse sm:flex-row-reverse gap-3 justify-end">
           <button
             onClick={onClose}
             className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
@@ -1797,8 +1932,9 @@ const getRoleColor = (role: UserRole) => {
   }
 };
 
-/* Main Page */
 export default function UsersManagementPage() {
+  const { user: currentUser } = useAuth();
+  const toast = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1843,6 +1979,7 @@ export default function UsersManagementPage() {
 
   // Forms
   const [showPassword, setShowPassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
   const [newUser, setNewUser] = useState({
     username: "",
     email: "",
@@ -1854,6 +1991,8 @@ export default function UsersManagementPage() {
     email: "",
     role: UserRole.CUSTOMER,
     is_active: true,
+    password: "", // Added password field
+    changePassword: false, // Track if password should be changed
   });
 
   useEffect(() => {
@@ -1866,7 +2005,7 @@ export default function UsersManagementPage() {
     try {
       const response = await api.get("/users");
       setUsers(response.data);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error fetching users:", err);
       setError("Failed to load users. Please try again.");
     } finally {
@@ -1876,9 +2015,17 @@ export default function UsersManagementPage() {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check if trying to create admin without being super admin
+    if (newUser.role === UserRole.ADMIN && !currentUser?.is_super_admin) {
+      toast.error("Only super admin can create admin users");
+      return;
+    }
+
     setSaving(true);
     try {
       await api.post("/users", newUser);
+      toast.success("User created successfully");
       setIsCreateDialogOpen(false);
       setNewUser({
         username: "",
@@ -1887,9 +2034,10 @@ export default function UsersManagementPage() {
         role: UserRole.CUSTOMER,
       });
       await fetchUsers();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error creating user:", err);
-      setError("Error creating user. Please try again.");
+      const error = err as { response?: { data?: { detail?: string } } };
+      toast.error(error.response?.data?.detail || "Error creating user");
     } finally {
       setSaving(false);
     }
@@ -1902,22 +2050,57 @@ export default function UsersManagementPage() {
       email: user.email,
       role: user.role,
       is_active: user.is_active,
+      password: "",
+      changePassword: false,
     });
+    setShowEditPassword(false);
     setIsEditDialogOpen(true);
   };
 
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
+
+    // Check role change permissions
+    if (
+      editUser.role === UserRole.ADMIN &&
+      selectedUser.role !== UserRole.ADMIN &&
+      !currentUser?.is_super_admin
+    ) {
+      toast.error("Only super admin can assign admin role");
+      return;
+    }
+
     setSaving(true);
     try {
-      await api.put(`/users/${selectedUser.id}`, editUser);
+      // Prepare update data
+      const updateData: {
+        username: string;
+        email: string;
+        role: UserRole;
+        is_active: boolean;
+        password?: string;
+      } = {
+        username: editUser.username,
+        email: editUser.email,
+        role: editUser.role,
+        is_active: editUser.is_active,
+      };
+
+      // Only include password if it's being changed
+      if (editUser.changePassword && editUser.password) {
+        updateData.password = editUser.password;
+      }
+
+      await api.put(`/users/${selectedUser.id}`, updateData);
+      toast.success("User updated successfully");
       setIsEditDialogOpen(false);
       setSelectedUser(null);
       await fetchUsers();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error updating user:", err);
-      setError("Error updating user. Please try again.");
+      const error = err as { response?: { data?: { detail?: string } } };
+      toast.error(error.response?.data?.detail || "Error updating user");
     } finally {
       setSaving(false);
     }
@@ -1926,21 +2109,29 @@ export default function UsersManagementPage() {
   const handleToggleActive = async (userId: string, currentStatus: boolean) => {
     try {
       await api.put(`/users/${userId}`, { is_active: !currentStatus });
+      toast.success(
+        `User ${!currentStatus ? "activated" : "deactivated"} successfully`
+      );
       await fetchUsers();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error updating user status:", err);
-      setError("Failed to update user status.");
+      const error = err as { response?: { data?: { detail?: string } } };
+      toast.error(
+        error.response?.data?.detail || "Failed to update user status"
+      );
     }
   };
 
   const handleDeleteUser = async () => {
     try {
       await api.delete(`/users/${confirmDialog.userId}`);
+      toast.success("User deleted successfully");
       setConfirmDialog({ isOpen: false, userId: "", username: "" });
       await fetchUsers();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error deleting user:", err);
-      setError("Error deleting user. Please try again.");
+      const error = err as { response?: { data?: { detail?: string } } };
+      toast.error(error.response?.data?.detail || "Error deleting user");
     }
   };
 
@@ -1955,6 +2146,40 @@ export default function UsersManagementPage() {
     []
   );
 
+  const createRoleOptions = useMemo(() => {
+    // Only super admin can create admin users
+    if (currentUser?.is_super_admin) {
+      return Object.values(UserRole).map((role) => ({
+        value: role,
+        label: role.charAt(0).toUpperCase() + role.slice(1),
+      }));
+    } else {
+      return Object.values(UserRole)
+        .filter((role) => role !== UserRole.ADMIN)
+        .map((role) => ({
+          value: role,
+          label: role.charAt(0).toUpperCase() + role.slice(1),
+        }));
+    }
+  }, [currentUser]);
+
+  const editRoleOptions = useMemo(() => {
+    // Only super admin can assign admin role
+    if (currentUser?.is_super_admin) {
+      return Object.values(UserRole).map((role) => ({
+        value: role,
+        label: role.charAt(0).toUpperCase() + role.slice(1),
+      }));
+    } else {
+      return Object.values(UserRole)
+        .filter((role) => role !== UserRole.ADMIN)
+        .map((role) => ({
+          value: role,
+          label: role.charAt(0).toUpperCase() + role.slice(1),
+        }));
+    }
+  }, [currentUser]);
+
   const filteredUsers = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase();
     return users.filter((u) => {
@@ -1967,28 +2192,9 @@ export default function UsersManagementPage() {
     });
   }, [users, debouncedSearch, roleFilter]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
-        <div className="text-center space-y-6 max-w-md">
-          <div className="relative w-16 h-16 sm:w-20 sm:h-20 mx-auto">
-            <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-800 rounded-full" />
-            <div className="absolute inset-0 border-4 border-blue-600 dark:border-blue-400 rounded-full border-t-transparent animate-spin" />
-          </div>
-          <div className="space-y-2 sm:space-y-3">
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
-              Loading Users
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-sm sm:text-base">
-              Please wait while we retrieve user data...
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <SimpleLoading message="Loading..." fullScreen />;
 
-  /* User Card (Grid) */
+  /* User Card (Grid) - Updated with password change button */
   const UserCard = ({ user }: { user: User }) => (
     <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 sm:p-5 flex flex-col gap-4">
       <div className="flex items-start justify-between gap-4">
@@ -1999,9 +2205,17 @@ export default function UsersManagementPage() {
             </span>
           </div>
           <div className="min-w-0">
-            <h3 className="font-semibold text-lg text-gray-900 dark:text-white truncate">
-              {user.username}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-lg text-gray-900 dark:text-white truncate">
+                {user.username}
+              </h3>
+              {user.is_super_admin && (
+                <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-purple-500 to-pink-600 text-white text-xs font-bold rounded-full">
+                  <Shield className="w-3 h-3" />
+                  SUPER
+                </div>
+              )}
+            </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
               {user.email}
             </p>
@@ -2023,21 +2237,29 @@ export default function UsersManagementPage() {
           <Shield className="w-3 h-3" />
           {user.role}
         </span>
-        <button
-          onClick={() => handleToggleActive(user.id, user.is_active)}
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
-            user.is_active
-              ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
-              : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800"
-          }`}
-        >
-          {user.is_active ? (
+        {!user.is_super_admin && (
+          <button
+            onClick={() => handleToggleActive(user.id, user.is_active)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
+              user.is_active
+                ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+                : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800"
+            }`}
+          >
+            {user.is_active ? (
+              <CheckCircle className="w-3 h-3" />
+            ) : (
+              <XCircle className="w-3 h-3" />
+            )}
+            {user.is_active ? "Active" : "Inactive"}
+          </button>
+        )}
+        {user.is_super_admin && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">
             <CheckCircle className="w-3 h-3" />
-          ) : (
-            <XCircle className="w-3 h-3" />
-          )}
-          {user.is_active ? "Active" : "Inactive"}
-        </button>
+            Always Active
+          </span>
+        )}
       </div>
 
       <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
@@ -2051,38 +2273,54 @@ export default function UsersManagementPage() {
       </div>
 
       <div className="flex items-stretch gap-2 pt-2">
-        <button
-          onClick={() => handleEditClick(user)}
-          className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
-        >
-          <Edit className="w-4 h-4" />
-          Edit
-        </button>
-        {user.username === "admin" ? (
-          <div className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-sm font-medium rounded-lg border border-amber-200 dark:border-amber-800">
-            <Shield className="w-4 h-4" />
-            Protected
-          </div>
+        {!user.is_super_admin ? (
+          <>
+            <button
+              onClick={() => handleEditClick(user)}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
+            >
+              <Edit className="w-3.5 h-3.5" />
+              Edit
+            </button>
+            <button
+              onClick={() =>
+                setConfirmDialog({
+                  isOpen: true,
+                  userId: user.id,
+                  username: user.username,
+                })
+              }
+              className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete
+            </button>
+          </>
+        ) : currentUser?.is_super_admin ? (
+          <>
+            <button
+              onClick={() => handleEditClick(user)}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
+            >
+              <Edit className="w-3.5 h-3.5" />
+              Edit
+            </button>
+            <div className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-400 text-sm font-medium rounded-lg border border-purple-200 dark:border-purple-800">
+              <Shield className="w-3.5 h-3.5" />
+              Protected
+            </div>
+          </>
         ) : (
-          <button
-            onClick={() =>
-              setConfirmDialog({
-                isOpen: true,
-                userId: user.id,
-                username: user.username,
-              })
-            }
-            className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all"
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete
-          </button>
+          <div className="w-full inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-400 text-sm font-medium rounded-lg border border-purple-200 dark:border-purple-800">
+            <Shield className="w-4 h-4" />
+            Super Admin Protected
+          </div>
         )}
       </div>
     </div>
   );
 
-  /* User Row (List) - Corrected Layout */
+  /* User Row (List) - Updated with password change button */
   const UserRow = ({ user }: { user: User }) => (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
       {/* LEFT: User Info */}
@@ -2093,9 +2331,17 @@ export default function UsersManagementPage() {
           </span>
         </div>
         <div className="min-w-0">
-          <h3 className="font-semibold text-gray-900 dark:text-white truncate">
-            {user.username}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+              {user.username}
+            </h3>
+            {user.is_super_admin && (
+              <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-purple-500 to-pink-600 text-white text-xs font-bold rounded-full">
+                <Shield className="w-3 h-3" />
+                SUPER
+              </div>
+            )}
+          </div>
           <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
             {user.email}
           </p>
@@ -2112,21 +2358,28 @@ export default function UsersManagementPage() {
           <Shield className="w-3 h-3" />
           {user.role}
         </span>
-        <button
-          onClick={() => handleToggleActive(user.id, user.is_active)}
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
-            user.is_active
-              ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
-              : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800"
-          }`}
-        >
-          {user.is_active ? (
+        {!user.is_super_admin ? (
+          <button
+            onClick={() => handleToggleActive(user.id, user.is_active)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
+              user.is_active
+                ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+                : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800"
+            }`}
+          >
+            {user.is_active ? (
+              <CheckCircle className="w-3 h-3" />
+            ) : (
+              <XCircle className="w-3 h-3" />
+            )}
+            {user.is_active ? "Active" : "Inactive"}
+          </button>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">
             <CheckCircle className="w-3 h-3" />
-          ) : (
-            <XCircle className="w-3 h-3" />
-          )}
-          {user.is_active ? "Active" : "Inactive"}
-        </button>
+            Always Active
+          </span>
+        )}
         {user.is_verified ? (
           <CheckCircle className="w-5 h-5 text-emerald-500" />
         ) : (
@@ -2146,32 +2399,50 @@ export default function UsersManagementPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleEditClick(user)}
-            className="inline-flex items-center justify-center gap-1.5 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            <Edit className="w-4 h-4" />
-            Edit
-          </button>
-          {user.username === "admin" ? (
-            <div className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-sm font-medium rounded-lg border border-amber-200 dark:border-amber-800">
-              <Shield className="w-4 h-4" />
-              Protected
-            </div>
+          {!user.is_super_admin ? (
+            <>
+              <button
+                onClick={() => handleEditClick(user)}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <Edit className="w-4 h-4" />
+                Edit
+              </button>
+
+              <button
+                onClick={() =>
+                  setConfirmDialog({
+                    isOpen: true,
+                    userId: user.id,
+                    username: user.username,
+                  })
+                }
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </button>
+            </>
+          ) : currentUser?.is_super_admin ? (
+            <>
+              <button
+                onClick={() => handleEditClick(user)}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <Edit className="w-4 h-4" />
+                Edit
+              </button>
+
+              <div className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-400 text-sm font-medium rounded-lg border border-purple-200 dark:border-purple-800">
+                <Shield className="w-4 h-4" />
+                Protected
+              </div>
+            </>
           ) : (
-            <button
-              onClick={() =>
-                setConfirmDialog({
-                  isOpen: true,
-                  userId: user.id,
-                  username: user.username,
-                })
-              }
-              className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete
-            </button>
+            <div className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-700 dark:text-purple-400 text-sm font-medium rounded-lg border border-purple-200 dark:border-purple-800">
+              <Shield className="w-4 h-4" />
+              Super Admin
+            </div>
           )}
         </div>
       </div>
@@ -2345,13 +2616,26 @@ export default function UsersManagementPage() {
         )}
       </main>
 
-      {/* Create User Modal */}
+      {/* Create User Modal - No changes needed */}
       <ModernModal
         isOpen={isCreateDialogOpen}
         onClose={() => setIsCreateDialogOpen(false)}
         title="Create New User"
       >
         <form onSubmit={handleCreateUser} className="space-y-5 sm:space-y-6">
+          {currentUser?.is_super_admin && newUser.role === UserRole.ADMIN && (
+            <div className="p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl">
+              <div className="flex items-start gap-2">
+                <Shield className="w-4 h-4 text-purple-600 dark:text-purple-400 mt-0.5" />
+                <div className="text-xs">
+                  <p className="font-medium text-purple-800 dark:text-purple-200">
+                    Creating Admin User
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label
               htmlFor="username"
@@ -2435,13 +2719,15 @@ export default function UsersManagementPage() {
               onChange={(value) =>
                 setNewUser({ ...newUser, role: value as UserRole })
               }
-              options={Object.values(UserRole).map((role) => ({
-                value: role,
-                label: role.charAt(0).toUpperCase() + role.slice(1),
-              }))}
+              options={createRoleOptions}
               placeholder="Select role"
               icon={Shield}
             />
+            {!currentUser?.is_super_admin && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Only super admin can create admin users
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row-reverse gap-3 pt-2">
@@ -2474,13 +2760,29 @@ export default function UsersManagementPage() {
         </form>
       </ModernModal>
 
-      {/* Edit User Modal */}
+      {/* Edit User Modal - Updated with optional password change */}
       <ModernModal
         isOpen={isEditDialogOpen}
         onClose={() => setIsEditDialogOpen(false)}
         title="Edit User"
       >
         <form onSubmit={handleUpdateUser} className="space-y-5 sm:space-y-6">
+          {selectedUser?.is_super_admin && (
+            <div className="p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl">
+              <div className="flex items-start gap-2">
+                <Shield className="w-4 h-4 text-purple-600 dark:text-purple-400 mt-0.5" />
+                <div className="text-xs">
+                  <p className="font-medium text-purple-800 dark:text-purple-200 mb-1">
+                    Super Admin Account
+                  </p>
+                  <p className="text-purple-700 dark:text-purple-300">
+                    Limited editing capabilities for security.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label
               htmlFor="edit-username"
@@ -2528,23 +2830,99 @@ export default function UsersManagementPage() {
               onChange={(value) =>
                 setEditUser({ ...editUser, role: value as UserRole })
               }
-              options={Object.values(UserRole).map((role) => ({
-                value: role,
-                label: role.charAt(0).toUpperCase() + role.slice(1),
-              }))}
+              options={editRoleOptions}
               placeholder="Select role"
               icon={Shield}
+              disabled={selectedUser?.is_super_admin}
             />
+            {selectedUser?.is_super_admin && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Super admin role cannot be changed
+              </p>
+            )}
+            {!currentUser?.is_super_admin &&
+              editUser.role !== selectedUser?.role && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Only super admin can assign admin role
+                </p>
+              )}
           </div>
 
-          <ModernToggle
-            checked={editUser.is_active}
-            onChange={(checked) =>
-              setEditUser({ ...editUser, is_active: checked })
-            }
-            label="Account Status"
-            description="Enable or disable user account access."
-          />
+          {!selectedUser?.is_super_admin ? (
+            <ModernToggle
+              checked={editUser.is_active}
+              onChange={(checked) =>
+                setEditUser({ ...editUser, is_active: checked })
+              }
+              label="Account Status"
+              description="Enable or disable user account access."
+            />
+          ) : (
+            <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Super admin account is always active
+              </p>
+            </div>
+          )}
+
+          {/* Password Change Toggle Section */}
+          <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+            <ModernToggle
+              checked={editUser.changePassword}
+              onChange={(checked) => {
+                setEditUser({
+                  ...editUser,
+                  changePassword: checked,
+                  password: "",
+                });
+                if (!checked) setShowEditPassword(false);
+              }}
+              label="Change Password"
+              description="Set a new password for this user."
+            />
+
+            {editUser.changePassword && (
+              <div className="mt-4 space-y-2">
+                <label
+                  htmlFor="edit-password"
+                  className="block text-sm font-semibold text-gray-900 dark:text-white"
+                >
+                  New Password<span className="text-red-500 ml-1">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    id="edit-password"
+                    type={showEditPassword ? "text" : "password"}
+                    value={editUser.password}
+                    onChange={(e) =>
+                      setEditUser({ ...editUser, password: e.target.value })
+                    }
+                    placeholder="Enter new password"
+                    required={editUser.changePassword}
+                    minLength={editUser.changePassword ? 6 : undefined}
+                    className="w-full h-11 sm:h-12 px-4 pr-12 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditPassword((s) => !s)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    aria-label={
+                      showEditPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showEditPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Minimum 6 characters required
+                </p>
+              </div>
+            )}
+          </div>
 
           <div className="flex flex-col sm:flex-row-reverse gap-3 pt-2">
             <button
@@ -2629,6 +3007,7 @@ export default function Sidebar() {
     const stored = localStorage.getItem("sidebar:collapsed");
     if (stored === "1") setIsCollapsed(true);
   }, []);
+
   useEffect(() => {
     localStorage.setItem("sidebar:collapsed", isCollapsed ? "1" : "0");
   }, [isCollapsed]);
@@ -2646,7 +3025,7 @@ export default function Sidebar() {
     return () => document.removeEventListener("keydown", handleEscape);
   }, []);
 
-  // Close mobile drawer on large screens
+  // Close mobile dropdown on large screens
   useEffect(() => {
     const onResize = () => {
       if (window.innerWidth >= 1024) setIsMobileOpen(false);
@@ -2654,6 +3033,18 @@ export default function Sidebar() {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileOpen]);
 
   if (!user) return null;
 
@@ -2705,119 +3096,180 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile hamburger button (hidden while drawer is open) */}
-      {!isMobileOpen && (
-        <button
-          type="button"
-          onClick={toggleMobile}
-          aria-label="Open menu"
-          aria-expanded={false}
-          className={cn(
-            "lg:hidden fixed top-3 left-3 z-[60] inline-flex items-center justify-center rounded-lg",
-            "bg-gray-900 text-white shadow-lg hover:bg-gray-800",
-            "p-2 transition-colors duration-200"
-          )}
-        >
-          <Menu size={22} />
-        </button>
-      )}
+      {/* Mobile Header Bar - Always visible on mobile */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-[100] bg-gradient-to-r from-gray-950 to-gray-900 shadow-lg">
+        <div className="flex items-center justify-between px-4 py-3 h-[60px]">
+          {/* Logo and Brand */}
+          <Link
+            href={`/${role}/documents`}
+            className="flex items-center gap-2"
+            aria-label="Go to Documents"
+          >
+            <div className="flex items-center justify-center rounded-md bg-white/5 p-1.5">
+              <Image
+                src="/metsa_logo.png"
+                alt="Metsä"
+                width={32}
+                height={32}
+                priority
+                className="h-7 w-auto object-contain"
+              />
+            </div>
+            <span className="text-white text-sm font-semibold tracking-wide">
+              Dashboard
+            </span>
+          </Link>
 
-      {/* Mobile overlay */}
-      {isMobileOpen && (
-        <button
-          aria-label="Close menu overlay"
-          onClick={() => setIsMobileOpen(false)}
-          className="lg:hidden fixed inset-0 z-40 bg-black/50"
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          "fixed lg:relative inset-y-0 left-0 z-50 flex flex-col",
-          "bg-gradient-to-b from-gray-950 to-gray-900",
-          "text-white shadow-2xl transition-transform duration-300 ease-out",
-          // Desktop widths
-          isCollapsed ? "lg:w-16" : "lg:w-64",
-          // Mobile drawer behavior
-          isMobileOpen
-            ? "translate-x-0 w-72"
-            : "-translate-x-full lg:translate-x-0",
-          // Prevent click-through issues on mobile when closed
-          isMobileOpen
-            ? "pointer-events-auto"
-            : "pointer-events-none lg:pointer-events-auto"
-        )}
-        style={{ willChange: "transform" }}
-      >
-        {/* Header with logo and controls */}
-        <div
-          className={cn(
-            "flex items-center justify-between",
-            "px-3 sm:px-4 py-3 border-b border-white/10",
-            "h-[60px]"
-          )}
-        >
-          {/* Hide logo entirely when collapsed */}
-          {!isCollapsed ? (
-            <Link
-              href={`/${role}/documents`}
-              onClick={handleLinkClick}
-              className={cn(
-                "flex items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
-                "gap-2"
-              )}
-              aria-label="Go to Documents"
-            >
-              <div
-                className={cn(
-                  "flex items-center justify-center",
-                  "rounded-md bg-white/5 p-1.5"
-                )}
-              >
-                <Image
-                  src="/metsa_logo.png"
-                  alt="Metsä"
-                  width={32}
-                  height={32}
-                  priority
-                  className="h-7 w-auto object-contain"
-                />
-              </div>
-              <span className="text-sm font-semibold tracking-wide">
-                Dashboard
-              </span>
-            </Link>
-          ) : (
-            <div aria-hidden className="w-6 h-6" />
-          )}
-
-          {/* Mobile close (only visible when drawer is open on mobile) */}
-          {isMobileOpen && (
-            <button
-              type="button"
-              onClick={toggleMobile}
-              aria-label="Close menu"
-              className="lg:hidden p-2 rounded-md hover:bg-white/10 transition-colors"
-            >
-              <X size={18} />
-            </button>
-          )}
-
-          {/* Desktop collapse */}
+          {/* Mobile Menu Toggle Button */}
           <button
             type="button"
-            onClick={toggleCollapse}
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            aria-pressed={isCollapsed}
-            className="hidden lg:inline-flex p-2 rounded-md hover:bg-white/10 transition-colors"
+            onClick={toggleMobile}
+            aria-label={isMobileOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isMobileOpen}
+            className="inline-flex items-center justify-center rounded-lg bg-white/10 text-white p-2 hover:bg-white/20 transition-colors"
           >
-            <Menu size={18} />
+            {isMobileOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>
+      </header>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-2 sm:px-3 py-3 space-y-1 overflow-y-auto">
+      {/* Mobile Dropdown Overlay and Menu */}
+      {isMobileOpen && (
+        <>
+          {/* Overlay */}
+          <div
+            className="lg:hidden fixed inset-0 bg-black/50 z-[90]"
+            onClick={() => setIsMobileOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Dropdown Menu */}
+          <nav className="lg:hidden fixed top-[60px] left-0 right-0 bottom-0 z-[95] bg-gray-900 overflow-y-auto">
+            <div className="px-4 py-4 space-y-1">
+              {filteredNavigation.map((item) => {
+                const Icon = item.icon;
+                const active = isActivePath(item.href);
+
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={handleLinkClick}
+                    className={cn(
+                      "flex items-center rounded-lg px-3 py-3 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-md"
+                        : "text-gray-300 hover:text-white hover:bg-white/10"
+                    )}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <Icon className="h-5 w-5 mr-3 shrink-0" />
+                    <span>{item.name}</span>
+                    {active && (
+                      <span className="ml-auto inline-block h-2 w-2 rounded-full bg-white/90" />
+                    )}
+                  </Link>
+                );
+              })}
+
+              {/* User Info Section */}
+              <div className="border-t border-white/10 mt-4 pt-4">
+                <div className="flex items-center rounded-lg bg-white/5 px-3 py-3 mb-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-r from-emerald-600 to-emerald-500 text-white text-sm font-bold shrink-0">
+                    {user.email?.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="ml-3 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">
+                      {user.email}
+                    </p>
+                    <p className="text-xs text-gray-400 capitalize">
+                      {String(user.role)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Logout Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    logout();
+                    setIsMobileOpen(false);
+                  }}
+                  className="flex w-full items-center rounded-lg px-3 py-3 text-sm font-medium text-gray-300 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                >
+                  <LogOut className="h-5 w-5 mr-3 shrink-0" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            </div>
+          </nav>
+        </>
+      )}
+
+      {/* Desktop Sidebar - Hidden on mobile, visible on lg+ */}
+      <aside
+        className={cn(
+          "hidden lg:flex fixed inset-y-0 left-0 z-40 flex-col",
+          "bg-gradient-to-b from-gray-950 to-gray-900",
+          "text-white shadow-2xl transition-all duration-300",
+          isCollapsed ? "w-16" : "w-64"
+        )}
+      >
+        {/* Desktop Header */}
+        <div
+          className={cn(
+            "flex items-center border-b border-white/10 h-[60px]",
+            isCollapsed ? "justify-center px-0" : "justify-between px-4"
+          )}
+        >
+          {!isCollapsed ? (
+            <>
+              <Link
+                href={`/${role}/documents`}
+                className="flex items-center gap-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                aria-label="Go to Documents"
+              >
+                <div className="flex items-center justify-center rounded-md bg-white/5 p-1.5">
+                  <Image
+                    src="/metsa_logo.png"
+                    alt="Metsä"
+                    width={32}
+                    height={32}
+                    priority
+                    className="h-7 w-auto object-contain"
+                  />
+                </div>
+                <span className="text-sm font-semibold tracking-wide">
+                  Dashboard
+                </span>
+              </Link>
+              {/* Desktop Collapse Button - When expanded */}
+              <button
+                type="button"
+                onClick={toggleCollapse}
+                aria-label="Collapse sidebar"
+                aria-pressed={false}
+                className="p-2 rounded-md hover:bg-white/10 transition-colors"
+              >
+                <Menu size={18} />
+              </button>
+            </>
+          ) : (
+            /* When collapsed - centered button */
+            <button
+              type="button"
+              onClick={toggleCollapse}
+              aria-label="Expand sidebar"
+              aria-pressed={true}
+              className="p-3 rounded-md hover:bg-white/10 transition-colors"
+            >
+              <Menu size={18} />
+            </button>
+          )}
+        </div>
+
+        {/* Desktop Navigation */}
+        <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
           {filteredNavigation.map((item) => {
             const Icon = item.icon;
             const active = isActivePath(item.href);
@@ -2826,7 +3278,6 @@ export default function Sidebar() {
               <Link
                 key={item.name}
                 href={item.href}
-                onClick={handleLinkClick}
                 onMouseEnter={() => {
                   if (item.name === "Documents") {
                     queryClient.prefetchQuery({
@@ -2860,7 +3311,7 @@ export default function Sidebar() {
                 }}
                 className={cn(
                   "group relative flex items-center rounded-lg",
-                  "px-2.5 py-2 text-sm font-medium transition-colors",
+                  "px-2.5 py-2 text-sm font-medium transition-all",
                   active
                     ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-md shadow-emerald-600/20"
                     : "text-gray-300 hover:text-white hover:bg-white/10"
@@ -2890,18 +3341,15 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Footer: user + logout */}
-        <div className="border-t border-white/10 p-2 sm:p-3 space-y-2">
-          {/* User info */}
+        {/* Desktop Footer */}
+        <div className="border-t border-white/10 p-3 space-y-2">
           <div
             className={cn(
-              "flex items-center rounded-lg bg-white/5",
-              "px-2.5 py-2",
+              "flex items-center rounded-lg bg-white/5 px-2.5 py-2",
               isCollapsed ? "justify-center" : "justify-start"
             )}
-            aria-label="Current user"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-emerald-600 to-emerald-500 text-white text-sm font-bold">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-emerald-600 to-emerald-500 text-white text-sm font-bold shrink-0">
               {user.email?.charAt(0).toUpperCase()}
             </div>
             {!isCollapsed && (
@@ -2916,7 +3364,6 @@ export default function Sidebar() {
             )}
           </div>
 
-          {/* Logout */}
           <button
             type="button"
             onClick={logout}
@@ -2925,9 +3372,10 @@ export default function Sidebar() {
               "text-gray-300 hover:text-red-400 hover:bg-red-500/10 transition-colors",
               isCollapsed ? "justify-center" : ""
             )}
-            aria-label="Log out"
           >
-            <LogOut className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
+            <LogOut
+              className={cn("h-5 w-5 shrink-0", isCollapsed ? "" : "mr-3")}
+            />
             <span className={cn(isCollapsed ? "sr-only" : "inline")}>
               Logout
             </span>
@@ -3002,28 +3450,24 @@ export default function RoleSpecificLayout({
 ```typescript
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
-import { User, UserRole, ApprovalStatus } from "@/types";
+import { User, UserRole } from "@/types";
 import { format } from "date-fns";
+import SimpleLoading from "@/components/SimpleLoading";
 import {
   UserCheck,
   UserX,
   Clock,
   Search,
-  Filter,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
   Building,
   Mail,
   Phone,
   Calendar,
   Shield,
-  Info,
   Loader2,
 } from "lucide-react";
 
@@ -3258,12 +3702,7 @@ export default function ApprovalsPage() {
     }
   }, [user, router]);
 
-  // Fetch pending users
-  useEffect(() => {
-    fetchPendingUsers();
-  }, []);
-
-  const fetchPendingUsers = async () => {
+  const fetchPendingUsers = useCallback(async () => {
     setLoading(true);
     try {
       const response = await api.get("/users/pending");
@@ -3274,7 +3713,12 @@ export default function ApprovalsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  // Fetch pending users
+  useEffect(() => {
+    fetchPendingUsers();
+  }, [fetchPendingUsers]);
 
   const handleApprove = async () => {
     if (!selectedUser) return;
@@ -3334,18 +3778,7 @@ export default function ApprovalsPage() {
     return matchesSearch && matchesRole;
   });
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin mx-auto" />
-          <p className="text-gray-600 dark:text-gray-400">
-            Loading pending approvals...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <SimpleLoading message="Loading..." fullScreen />;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -3537,8 +3970,9 @@ export default function DocumentsLayout({
 ```typescript
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ElementType, ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import {
   FileText,
   Download,
@@ -3549,7 +3983,6 @@ import {
   Grid,
   List,
   Plus,
-  Calendar,
   FolderOpen,
   Users,
   Lock,
@@ -3558,903 +3991,927 @@ import {
   X,
   Shield,
   EyeOff,
+  Check,
+  AlertCircle,
+  Filter,
 } from "lucide-react";
 import { format } from "date-fns";
 import api from "@/lib/api";
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-  keepPreviousData,
-} from "@tanstack/react-query";
-import {
-  Document,
-  DocumentCategory,
-  DocumentVisibility,
-  UserRole,
-} from "@/types";
+import { Document, DocumentVisibility, UserRole } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
 import DocumentPreviewModal from "@/components/DocumentPreviewModal";
 import { useToast } from "@/contexts/ToastContext";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import SimpleLoading from "@/components/SimpleLoading";
+import { useCategories } from "@/hooks/useCategories";
 
-// Utils
-const bytesToMB = (bytes: number) => (bytes / 1024 / 1024).toFixed(1) + " MB";
+/* Hook: auto-hide on scroll (down hides, up shows) */
+function useAutoHideHeader(offsetPx = 24, minDelta = 6) {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    let lastY = window.scrollY || 0;
+    let ticking = false;
 
-// A11y: Visually-hidden label
-const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
-  <span className="sr-only">{children}</span>
-);
+    const onScroll = () => {
+      const y = window.scrollY || 0;
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const delta = y - lastY;
+          if (Math.abs(delta) > minDelta) {
+            if (delta > 0 && y > offsetPx) {
+              setHidden(true);
+            } else {
+              setHidden(false);
+            }
+          }
+          lastY = y;
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
 
-// Theme-aware Select (light + dark)
-const ThemedSelect = ({
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [offsetPx, minDelta]);
+
+  return hidden;
+}
+
+/* Mobile-friendly Select (with Escape to close) */
+const ModernSelect = ({
   value,
   onChange,
   options,
   placeholder,
-  label,
-  ariaLabel,
+  icon: Icon,
 }: {
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   placeholder?: string;
-  label?: string;
-  ariaLabel?: string;
+  icon?: ElementType;
 }) => {
-  const [open, setOpen] = useState(false);
-  const selected = options.find((o) => o.value === value);
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = options.find((opt) => opt.value === value);
 
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") setIsOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [isOpen]);
 
   return (
-    <div className="w-full">
-      {label && (
-        <label className="block text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">
-          {label}
-        </label>
-      )}
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          aria-label={ariaLabel}
-          className="w-full h-11 px-4 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-xl text-left flex items-center justify-between text-sm text-gray-900 dark:text-gray-200 hover:border-gray-400 dark:hover:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600"
-        >
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen((o) => !o)}
+        className="w-full h-11 sm:h-12 px-3 sm:px-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-left flex items-center justify-between hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label="Open select"
+      >
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {Icon && (
+            <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+          )}
           <span
             className={
-              selected
-                ? "text-gray-900 dark:text-gray-200"
-                : "text-gray-500 dark:text-gray-400"
+              selectedOption
+                ? "text-gray-900 dark:text-white font-medium truncate"
+                : "text-gray-500 dark:text-gray-400 truncate"
             }
           >
-            {selected ? selected.label : placeholder}
+            {selectedOption ? selectedOption.label : placeholder}
           </span>
-          <ChevronDown
-            className={`w-4 h-4 text-gray-400 transition-transform ${
-              open ? "rotate-180" : ""
-            }`}
-          />
-        </button>
+        </div>
+        <ChevronDown
+          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
 
-        {open && (
-          <>
-            <button
-              className="fixed inset-0 z-20 cursor-default"
-              onClick={() => setOpen(false)}
-              aria-hidden="true"
-            />
-            <div
-              role="listbox"
-              className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl z-30 max-h-64 overflow-auto"
-            >
-              {options.map((opt) => (
-                <button
-                  key={opt.value}
-                  role="option"
-                  aria-selected={opt.value === value}
-                  type="button"
-                  onClick={() => {
-                    onChange(opt.value);
-                    setOpen(false);
-                  }}
-                  className="w-full px-4 py-2.5 text-left text-sm text-gray-900 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
+      {isOpen && (
+        <>
+          <button
+            className="fixed inset-0 z-30 cursor-default"
+            onClick={() => setIsOpen(false)}
+            aria-hidden="true"
+            tabIndex={-1}
+          />
+          <div
+            className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-40 max-h-64 overflow-auto"
+            role="listbox"
+          >
+            {options.map((option, index) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                role="option"
+                aria-selected={value === option.value}
+                className={`w-full px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between group transition-colors duration-150 ${
+                  index === 0 ? "rounded-t-xl" : ""
+                } ${index === options.length - 1 ? "rounded-b-xl" : ""}`}
+              >
+                <span className="text-gray-900 dark:text-white font-medium">
+                  {option.label}
+                </span>
+                {value === option.value && (
+                  <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+/* Modal (Escape to close) */
+const ModernModal = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+}) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="relative bg-white dark:bg-gray-900 rounded-2xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-gray-200 dark:border-gray-800 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+            {title}
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+            aria-label="Close modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        {children}
       </div>
     </div>
   );
 };
 
-// Confirm Modal (theme-aware)
-const ConfirmModal = ({
-  open,
+/* Confirm Dialog */
+const ConfirmDialog = ({
+  isOpen,
+  onClose,
+  onConfirm,
   title,
   message,
-  onCancel,
-  onConfirm,
 }: {
-  open: boolean;
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
   title: string;
   message: string;
-  onCancel: () => void;
-  onConfirm: () => void;
 }) => {
-  if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onCancel}
-        aria-hidden="true"
-      />
-      <div className="relative w-full max-w-md bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl p-6">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {title}
-          </h3>
-          <button
-            onClick={onCancel}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-            aria-label="Close modal"
-          >
-            <X className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-          </button>
+    <ModernModal isOpen={isOpen} onClose={onClose} title={title}>
+      <div className="space-y-5 sm:space-y-6">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
+            <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600 dark:text-red-400" />
+          </div>
+          <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+            {message}
+          </p>
         </div>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">{message}</p>
-        <div className="flex justify-end gap-3">
+        <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end">
           <button
-            onClick={onCancel}
-            className="px-4 py-2 rounded-xl bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-200 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 dark:border-gray-800"
+            onClick={onClose}
+            className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700"
+            className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
           >
-            Delete
+            Delete Document
           </button>
         </div>
       </div>
-    </div>
+    </ModernModal>
   );
 };
 
+/* Helpers */
+const getVisibilityColor = (visibility: string) => {
+  switch (visibility) {
+    case "public":
+      return "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800";
+    case "private":
+      return "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800";
+    case "internal":
+      return "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800";
+    default:
+      return "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400 border-gray-200 dark:border-gray-700";
+  }
+};
+
+const getVisibilityIcon = (visibility: string) => {
+  switch (visibility) {
+    case "public":
+      return <Globe className="w-3 h-3" />;
+    case "private":
+      return <Lock className="w-3 h-3" />;
+    case "internal":
+      return <Users className="w-3 h-3" />;
+    default:
+      return null;
+  }
+};
+
+const formatFileSize = (bytes: number) => {
+  const kb = bytes / 1024;
+  const mb = kb / 1024;
+  if (mb >= 1) {
+    return `${mb.toFixed(1)} MB`;
+  } else if (kb >= 1) {
+    return `${kb.toFixed(0)} KB`;
+  } else {
+    return `${bytes} B`;
+  }
+};
+
+/* Main Page */
 export default function DocumentsPage() {
   const router = useRouter();
-  const params = useSearchParams();
-  const queryClient = useQueryClient();
   const toast = useToast();
   const { user } = useAuth();
+  const { data: categories, isLoading: categoriesLoading } = useCategories();
 
-  // View mode
-  const [view, setView] = useState<"grid" | "list">("grid");
+  // State
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Filters + debounced state
-  const [filters, setFilters] = useState({
-    search: params.get("search") ?? "",
-    category: (params.get("category") as string) ?? "all",
-    visibility: (params.get("visibility") as string) ?? "all",
-    page: 1,
-    pageSize: 20,
-  });
-  const [debounced, setDebounced] = useState(filters);
+  // View mode (persisted)
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(filters), 300);
+    const stored = localStorage.getItem("documents:viewMode");
+    if (stored === "list" || stored === "grid") setViewMode(stored);
+  }, []);
+  useEffect(() => {
+    localStorage.setItem("documents:viewMode", viewMode);
+  }, [viewMode]);
+
+  // Auto-hide header
+  const headerHidden = useAutoHideHeader(24, 6);
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 250);
     return () => clearTimeout(t);
-  }, [filters]);
+  }, [searchQuery]);
 
-  // Keep URL in sync (no scroll jump)
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [visibilityFilter, setVisibilityFilter] = useState<string>("all");
+
+  // Confirm delete
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    documentId: string;
+    documentTitle: string;
+  }>({ isOpen: false, documentId: "", documentTitle: "" });
+
+  // Preview modal
+  const [previewModal, setPreviewModal] = useState<{
+    isOpen: boolean;
+    documentId: string;
+    documentTitle: string;
+    fileName: string;
+    mimeType?: string;
+    canDownload: boolean;
+  }>({
+    isOpen: false,
+    documentId: "",
+    documentTitle: "",
+    fileName: "",
+    mimeType: "",
+    canDownload: false,
+  });
+
+  const fetchDocuments = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params: string[] = [];
+      if (debouncedSearch)
+        params.push(`search=${encodeURIComponent(debouncedSearch)}`);
+      if (categoryFilter !== "all")
+        params.push(`category=${encodeURIComponent(categoryFilter)}`);
+      if (visibilityFilter !== "all")
+        params.push(`visibility=${encodeURIComponent(visibilityFilter)}`);
+      const queryString = params.length > 0 ? `?${params.join("&")}` : "";
+
+      const response = await api.get(`/documents${queryString}`);
+      setDocuments(response.data);
+    } catch (err) {
+      console.error("Error fetching documents:", err);
+      setError("Failed to load documents. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [debouncedSearch, categoryFilter, visibilityFilter]);
+
+  // Fetch on mount and whenever filters/search change
   useEffect(() => {
-    const sp = new URLSearchParams();
-    if (filters.search) sp.set("search", filters.search);
-    if (filters.category !== "all") sp.set("category", filters.category);
-    if (filters.visibility !== "all") sp.set("visibility", filters.visibility);
-    const qs = sp.toString();
-    router.replace(qs ? `?${qs}` : "?", { scroll: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.search, filters.category, filters.visibility]);
+    fetchDocuments();
+  }, [fetchDocuments]);
 
-  // Build API url
-  const buildUrl = (f: typeof debounced) => {
-    const q: string[] = [];
-    if (f.search) q.push(`search=${encodeURIComponent(f.search)}`);
-    if (f.category !== "all")
-      q.push(`category=${encodeURIComponent(f.category)}`);
-    if (f.visibility !== "all")
-      q.push(`visibility=${encodeURIComponent(f.visibility)}`);
-    q.push(`skip=${(f.page - 1) * f.pageSize}`);
-    q.push(`limit=${f.pageSize}`);
-    return `/documents?${q.join("&")}`;
+  const handleDeleteDocument = async () => {
+    try {
+      setSaving(true);
+      await api.delete(`/documents/${confirmDialog.documentId}`);
+      setConfirmDialog({ isOpen: false, documentId: "", documentTitle: "" });
+      toast.success("Document deleted successfully");
+      await fetchDocuments();
+    } catch (err) {
+      console.error("Error deleting document:", err);
+      toast.error("Failed to delete document. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // Fetch
-  const {
-    data: documents,
-    isLoading,
-    isFetching,
-  } = useQuery({
-    queryKey: ["documents", debounced],
-    queryFn: async () =>
-      (await api.get(buildUrl(debounced))).data as Document[],
-    placeholderData: keepPreviousData,
-    staleTime: 15_000,
-    gcTime: 5 * 60_000,
-    refetchOnWindowFocus: true,
+  const handleDownload = async (doc: Document) => {
+    try {
+      const response = await api.get(`/documents/${doc.id}/download`, {
+        responseType: "blob",
+      });
+      const blob = new Blob([response.data]);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = doc.file_name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Document downloaded successfully");
+    } catch (err) {
+      console.error("Error downloading document:", err);
+      toast.error("Failed to download document. Please try again.");
+    }
+  };
+
+const handlePreview = (doc: Document) => {
+  setPreviewModal({
+    isOpen: true,
+    documentId: doc.id,
+    documentTitle: doc.title,
+    fileName: doc.file_name,
+    mimeType: doc.mime_type,
+    canDownload: false, // Always false to disable download
   });
+};
+
+
+  const handleEdit = (doc: Document) => {
+    router.push(`/${user?.role}/documents/${doc.id}/edit`);
+  };
 
   const canEdit =
     user?.role === UserRole.ADMIN || user?.role === UserRole.EDITOR;
   const canDelete = user?.role === UserRole.ADMIN;
 
-  // Delete with optimistic update
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => api.delete(`/documents/${id}`),
-    onMutate: async (id: string) => {
-      await queryClient.cancelQueries({ queryKey: ["documents"] });
-      const key = ["documents", debounced] as const;
-      const previous = queryClient.getQueryData<Document[]>(key);
-      if (previous) {
-        queryClient.setQueryData<Document[]>(
-          key,
-          previous.filter((d) => d.id !== id)
-        );
-      }
-      return { previous, key };
-    },
-    onError: (_e, _id, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(ctx.key, ctx.previous);
-      toast.error("Failed to delete document. Please try again.");
-    },
-    onSuccess: () => toast.success("Document deleted"),
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["documents"] });
-    },
-  });
+  // Get category color based on dynamic categories
+  const getCategoryColor = (categoryName: string) => {
+    const category = categories?.find((cat) => cat.name === categoryName);
+    if (!category)
+      return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700";
 
-  // Delete modal
-  const [confirm, setConfirm] = useState<{
-    open: boolean;
-    id: string;
-    title: string;
-  }>({
-    open: false,
-    id: "",
-    title: "",
-  });
-  const askDelete = (id: string, title: string) =>
-    setConfirm({ open: true, id, title });
-  const confirmDelete = async () => {
-    const id = confirm.id;
-    setConfirm({ open: false, id: "", title: "" });
-    await deleteMutation.mutateAsync(id);
+    const colorMap: Record<string, string> = {
+      blue: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800",
+      emerald:
+        "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
+      red: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800",
+      purple:
+        "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800",
+      amber:
+        "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800",
+      indigo:
+        "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800",
+      gray: "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700",
+    };
+
+    return colorMap[category.color || "gray"] || colorMap.gray;
   };
 
-  // Preview modal
-  const [preview, setPreview] = useState<{
-    open: boolean;
-    id: string;
-    title: string;
-    fileName: string;
-    mime?: string;
-    canDownload: boolean;
-  }>({
-    open: false,
-    id: "",
-    title: "",
-    fileName: "",
-    mime: "",
-    canDownload: false,
-  });
-
-  const openPreview = (doc: Document) => {
-    const canDownload =
-      !doc.is_viewable_only && user?.role !== UserRole.CUSTOMER;
-    setPreview({
-      open: true,
-      id: doc.id,
-      title: doc.title,
-      fileName: doc.file_name,
-      mime: doc.mime_type,
-      canDownload,
-    });
-  };
-
-  const handleEdit = (id: string) =>
-    router.push(`/${user?.role}/documents/${id}/edit`);
-
-  const handleDownload = async (id: string, fileName: string) => {
-    try {
-      const res = await api.get(`/documents/${id}/download`, {
-        responseType: "blob",
-      });
-      const blob = new Blob([res.data], {
-        type: res.headers["content-type"] || "application/octet-stream",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (e: any) {
-      const status = e?.response?.status;
-      if (status === 403)
-        toast.error("Download not allowed for this document.");
-      else if (status === 404) toast.error("Document not found.");
-      else toast.error("Unable to download. Please try again.");
-    }
-  };
-
-  // Options
   const categoryOptions = useMemo(
     () => [
       { value: "all", label: "All Categories" },
-      ...Object.values(DocumentCategory).map((c) => ({
-        value: c,
-        label: c.charAt(0).toUpperCase() + c.slice(1),
-      })),
+      ...(categories
+        ?.filter((cat) => cat.is_active)
+        .map((cat) => ({
+          value: cat.name,
+          label: cat.label,
+        })) || []),
     ],
-    []
+    [categories]
   );
 
   const visibilityOptions = useMemo(
     () => [
       { value: "all", label: "All Visibility" },
-      ...Object.values(DocumentVisibility).map((v) => ({
-        value: v,
-        label: v.charAt(0).toUpperCase() + v.slice(1),
+      ...Object.values(DocumentVisibility).map((vis) => ({
+        value: vis,
+        label: vis.charAt(0).toUpperCase() + vis.slice(1),
       })),
     ],
     []
   );
 
-  const getVisibilityIcon = (v: string) =>
-    v === "public" ? (
-      <Globe className="w-3 h-3" />
-    ) : v === "private" ? (
-      <Lock className="w-3 h-3" />
-    ) : (
-      <Users className="w-3 h-3" />
-    );
+  const filteredDocuments = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    return documents.filter((doc) => {
+      const matchesSearch =
+        !q ||
+        doc.title.toLowerCase().includes(q) ||
+        doc.file_name.toLowerCase().includes(q) ||
+        (doc.description && doc.description.toLowerCase().includes(q));
+      const matchesCategory =
+        categoryFilter === "all" || doc.category === categoryFilter;
+      const matchesVisibility =
+        visibilityFilter === "all" || doc.visibility === visibilityFilter;
+      return matchesSearch && matchesCategory && matchesVisibility;
+    });
+  }, [documents, debouncedSearch, categoryFilter, visibilityFilter]);
 
-  // theme-aware pill colors
-  const getVisibilityColor = (v: string) =>
-    v === "public"
-      ? "bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800"
-      : v === "private"
-      ? "bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800"
-      : "bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800";
+  if (loading || categoriesLoading)
+    return <SimpleLoading message="Loading..." fullScreen />;
 
-  const getCategoryColor = (c: string) => {
-    const map: Record<string, string> = {
-      commercial:
-        "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-      quality:
-        "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-      safety: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-      compliance:
-        "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-      contracts:
-        "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-      specifications:
-        "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
-      other: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-    };
-    return map[c] || map.other;
+  const getCategoryLabel = (categoryName: string) => {
+    const category = categories?.find((cat) => cat.name === categoryName);
+    return category?.label || categoryName;
   };
 
-  // Actions for card layout
-  const CardActions = ({ doc }: { doc: Document }) => (
-    <div className="flex flex-wrap gap-2">
-      <button
-        onClick={() => openPreview(doc)}
-        className="flex items-center gap-2 px-4 py-2.5 text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded-xl transition-colors font-medium min-w-[120px] justify-center"
-        aria-label={`Preview ${doc.title}`}
-      >
-        <Eye className="w-4 h-4" />
-        Preview
-      </button>
-
-      {!doc.is_viewable_only && user?.role !== UserRole.CUSTOMER ? (
-        <button
-          onClick={() => handleDownload(doc.id, doc.file_name)}
-          className="flex items-center gap-2 px-4 py-2.5 text-sm bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30 rounded-xl transition-colors font-medium min-w-[120px] justify-center"
-          aria-label={`Download ${doc.title}`}
-        >
-          <Download className="w-4 h-4" />
-          Download
-        </button>
-      ) : (
-        <div
-          className="flex items-center gap-2 px-4 py-2.5 text-sm bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800 rounded-xl font-medium min-w-[120px] justify-center"
-          aria-label="View only"
-        >
-          <EyeOff className="w-4 h-4" />
-          View Only
-        </div>
-      )}
-
-      {canEdit && (
-        <button
-          onClick={() => handleEdit(doc.id)}
-          className="flex items-center gap-2 px-4 py-2.5 text-sm bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-800 dark:hover:bg-gray-800 rounded-xl transition-colors font-medium min-w-[120px] justify-center"
-          aria-label={`Edit ${doc.title}`}
-        >
-          <Edit className="w-4 h-4" />
-          Edit
-        </button>
-      )}
-
-      {canDelete && (
-        <button
-          onClick={() => askDelete(doc.id, doc.title)}
-          className="flex items-center gap-2 px-4 py-2.5 text-sm bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 rounded-xl transition-colors font-medium min-w-[120px] justify-center"
-          aria-label={`Delete ${doc.title}`}
-        >
-          <Trash2 className="w-4 h-4" />
-          Delete
-        </button>
-      )}
-    </div>
-  );
-
+  /* Document Card (Grid) */
   const DocumentCard = ({ doc }: { doc: Document }) => (
-    <div className="group bg-white dark:bg-gray-950 rounded-2xl border border-gray-200 dark:border-gray-800 hover:shadow-lg transition-all duration-200 overflow-hidden">
-      <div className="p-5">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-4 flex-1 min-w-0">
-            <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
-              <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate text-lg">
-                {doc.title}
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-1">
-                {doc.file_name}
-              </p>
-            </div>
+    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 sm:p-5 flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
+            <FileText className="w-6 h-6 text-white" />
           </div>
-        </div>
-
-        {doc.description && (
-          <p className="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2 text-sm leading-relaxed">
-            {doc.description}
-          </p>
-        )}
-
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <span
-            className={`inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-lg ${getCategoryColor(
-              doc.category
-            )}`}
-          >
-            <FolderOpen className="w-3 h-3 mr-1.5" />
-            {doc.category}
-          </span>
-          <span
-            className={`inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-lg ${getVisibilityColor(
-              doc.visibility
-            )} gap-1.5`}
-          >
-            {getVisibilityIcon(doc.visibility)}
-            {doc.visibility}
-          </span>
-          {doc.is_viewable_only && (
-            <span className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-lg bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 gap-1.5">
-              <Shield className="w-3 h-3" />
-              View Only
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-6">
-          <span className="font-medium">{bytesToMB(doc.file_size)}</span>
-          <span className="flex items-center gap-1.5">
-            <Calendar className="w-3 h-3" />
-            {format(new Date(doc.updated_at), "MMM dd, yyyy")}
-          </span>
-        </div>
-
-        <CardActions doc={doc} />
-      </div>
-    </div>
-  );
-
-  const DocumentRow = ({ doc }: { doc: Document }) => (
-    <div className="group bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 hover:shadow-md transition-all duration-150 p-4">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4 flex-1 min-w-0">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
-            <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
+          <div className="min-w-0">
+            <h3 className="font-semibold text-lg text-gray-900 dark:text-white truncate">
               {doc.title}
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-0.5">
-              {doc.description || doc.file_name}
+            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+              {doc.file_name}
             </p>
           </div>
-
-          <div className="hidden md:flex items-center gap-3 ml-4">
-            <span
-              className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-lg ${getCategoryColor(
-                doc.category
-              )}`}
-            >
-              {doc.category}
-            </span>
-            <span
-              className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-lg ${getVisibilityColor(
-                doc.visibility
-              )} gap-1`}
-            >
-              {getVisibilityIcon(doc.visibility)}
-              {doc.visibility}
-            </span>
-            {doc.is_viewable_only && (
-              <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-lg bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 gap-1">
-                <Shield className="w-3 h-3" />
-                View Only
-              </span>
-            )}
-            <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-              {bytesToMB(doc.file_size)}
-            </span>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {format(new Date(doc.updated_at), "MMM dd, yyyy")}
-            </span>
-          </div>
         </div>
-
-        <div className="flex items-center gap-1 sm:gap-2">
-          <button
-            onClick={() => openPreview(doc)}
-            className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
-            title="Preview"
-            aria-label={`Preview ${doc.title}`}
-          >
-            <Eye className="w-4 h-4" />
-          </button>
-
-          {!doc.is_viewable_only && user?.role !== UserRole.CUSTOMER ? (
-            <button
-              onClick={() => handleDownload(doc.id, doc.file_name)}
-              className="p-2 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
-              title="Download"
-              aria-label={`Download ${doc.title}`}
-            >
-              <Download className="w-4 h-4" />
-            </button>
-          ) : (
-            <div
-              className="p-2 rounded-lg text-amber-600 dark:text-amber-400 cursor-not-allowed"
-              title="View Only"
-            >
-              <EyeOff className="w-4 h-4" />
-            </div>
-          )}
-
-          {canEdit && (
-            <button
-              onClick={() => handleEdit(doc.id)}
-              className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-              title="Edit"
-              aria-label={`Edit ${doc.title}`}
-            >
-              <Edit className="w-4 h-4" />
-            </button>
-          )}
-
-          {canDelete && (
-            <button
-              onClick={() => askDelete(doc.id, doc.title)}
-              className="p-2 rounded-lg text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-              title="Delete"
-              aria-label={`Delete ${doc.title}`}
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
-        </div>
+        {doc.is_viewable_only ? (
+          <EyeOff className="w-5 h-5 text-amber-500 flex-shrink-0" />
+        ) : (
+          <Eye className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+        )}
       </div>
 
-      {/* Small-screen meta */}
-      <div className="md:hidden mt-3 flex items-center flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span
-          className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-lg ${getCategoryColor(
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border ${getCategoryColor(
             doc.category
           )}`}
         >
-          {doc.category}
+          <FolderOpen className="w-3 h-3" />
+          {getCategoryLabel(doc.category)}
         </span>
-        <span
-          className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-lg ${getVisibilityColor(
+        <button
+          onClick={() => toast.info(`Document visibility: ${doc.visibility}`)}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${getVisibilityColor(
             doc.visibility
-          )} gap-1`}
+          )}`}
         >
           {getVisibilityIcon(doc.visibility)}
           {doc.visibility}
-        </span>
-        {doc.is_viewable_only && (
-          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-lg bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 gap-1">
-            <Shield className="w-3 h-3" />
-            View Only
-          </span>
-        )}
-        <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-          {bytesToMB(doc.file_size)}
-        </span>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
-          {format(new Date(doc.updated_at), "MMM dd, yyyy")}
-        </span>
+        </button>
       </div>
-    </div>
-  );
 
-  // Header toolbar
-  const Toolbar = () => (
-    <div className="flex items-center gap-3">
-      <div className="flex bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-1">
+      <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+        <p>Size: {formatFileSize(doc.file_size)}</p>
+        <p>Updated: {format(new Date(doc.updated_at), "MMM dd, yyyy")}</p>
+      </div>
+
+      <div className="flex items-stretch gap-2 pt-2">
         <button
-          onClick={() => setView("grid")}
-          aria-pressed={view === "grid"}
-          aria-label="Grid view"
-          className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors ${
-            view === "grid"
-              ? "bg-blue-600 text-white"
-              : "text-gray-600 hover:text-gray-900 hover:bg-white dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800"
-          }`}
+          onClick={() => handlePreview(doc)}
+          className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
         >
-          <Grid className="w-4 h-4" />
-          <VisuallyHidden>Grid</VisuallyHidden>
+          <Eye className="w-4 h-4" />
+          View
         </button>
-        <button
-          onClick={() => setView("list")}
-          aria-pressed={view === "list"}
-          aria-label="List view"
-          className={`h-10 w-10 rounded-lg flex items-center justify-center transition-colors ${
-            view === "list"
-              ? "bg-blue-600 text-white"
-              : "text-gray-600 hover:text-gray-900 hover:bg-white dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800"
-          }`}
-        >
-          <List className="w-4 h-4" />
-          <VisuallyHidden>List</VisuallyHidden>
-        </button>
+        {doc.is_viewable_only || user?.role === UserRole.CUSTOMER ? (
+          <div className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-sm font-medium rounded-lg border border-amber-200 dark:border-amber-800">
+            <Shield className="w-4 h-4" />
+            Protected
+          </div>
+        ) : (
+          <button
+            onClick={() => handleDownload(doc)}
+            className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-all"
+          >
+            <Download className="w-4 h-4" />
+            Download
+          </button>
+        )}
       </div>
 
       {canEdit && (
-        <button
-          onClick={() => router.push(`/${user?.role}/documents/upload`)}
-          className="inline-flex items-center gap-2 h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Document
-        </button>
+        <div className="flex items-stretch gap-2">
+          <button
+            onClick={() => handleEdit(doc)}
+            className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all"
+          >
+            <Edit className="w-4 h-4" />
+            Edit
+          </button>
+          {canDelete && (
+            <button
+              onClick={() =>
+                setConfirmDialog({
+                  isOpen: true,
+                  documentId: doc.id,
+                  documentTitle: doc.title,
+                })
+              }
+              className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
 
-  const LoadingCard = () => (
-    <div className="bg-white dark:bg-gray-950 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 animate-pulse">
-      <div className="flex items-center gap-4 mb-4">
-        <div className="w-12 h-12 bg-gray-200 dark:bg-gray-800 rounded-xl" />
-        <div className="flex-1">
-          <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-3/4 mb-2" />
-          <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-1/2" />
+  /* Document Row (List) */
+  const DocumentRow = ({ doc }: { doc: Document }) => (
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-4">
+      <div className="flex flex-col md:flex-row md:items-center gap-4">
+        {/* LEFT: Document Info */}
+        <div className="flex items-center gap-4 min-w-0 flex-grow">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <FileText className="w-5 h-5 text-white" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+              {doc.title}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+              {doc.file_name}
+            </p>
+          </div>
         </div>
-      </div>
-      <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-full mb-2" />
-      <div className="h-3 bg-gray-200 dark:bg-gray-800 rounded w-2/3 mb-4" />
-      <div className="flex gap-2">
-        <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded-xl w-28" />
-        <div className="h-10 bg-gray-200 dark:bg-gray-800 rounded-xl w-28" />
+
+        {/* RIGHT: Status, Meta, Actions */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-4 md:gap-6 w-full md:w-auto">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border ${getCategoryColor(
+                doc.category
+              )}`}
+            >
+              <FolderOpen className="w-3 h-3" />
+              {getCategoryLabel(doc.category)}
+            </span>
+            <button
+              onClick={() =>
+                toast.info(`Document visibility: ${doc.visibility}`)
+              }
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${getVisibilityColor(
+                doc.visibility
+              )}`}
+            >
+              {getVisibilityIcon(doc.visibility)}
+              {doc.visibility}
+            </button>
+            {doc.is_viewable_only ? (
+              <EyeOff className="w-5 h-5 text-amber-500" />
+            ) : (
+              <Eye className="w-5 h-5 text-emerald-500" />
+            )}
+          </div>
+
+          <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-col items-start md:items-end">
+            <span>Size: {formatFileSize(doc.file_size)}</span>
+            <span>
+              Updated: {format(new Date(doc.updated_at), "MMM dd, yyyy")}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => handlePreview(doc)}
+              className="inline-flex items-center justify-center gap-1.5 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <Eye className="w-4 h-4" />
+              View
+            </button>
+            {doc.is_viewable_only || user?.role === UserRole.CUSTOMER ? (
+              <div className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-sm font-medium rounded-lg border border-amber-200 dark:border-amber-800">
+                <Shield className="w-4 h-4" />
+                Protected
+              </div>
+            ) : (
+              <button
+                onClick={() => handleDownload(doc)}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Download
+              </button>
+            )}
+            {canEdit && (
+              <>
+                <button
+                  onClick={() => handleEdit(doc)}
+                  className="inline-flex items-center justify-center gap-1.5 h-9 px-4 border border-gray-300 dark:border-gray-700 bg-transparent text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <Edit className="w-4 h-4" />
+                  Edit
+                </button>
+                {canDelete && (
+                  <button
+                    onClick={() =>
+                      setConfirmDialog({
+                        isOpen: true,
+                        documentId: doc.id,
+                        documentTitle: doc.title,
+                      })
+                    }
+                    className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
 
-  const docs = documents ?? [];
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      {/* Header */}
-      <div className="border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-950/80 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                Document Library
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">
-                Organize, manage, and collaborate on all your important
-                documents
-              </p>
-              <div className="flex items-center gap-6 mt-4 text-sm">
-                <div className="text-gray-600 dark:text-gray-400">
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">
-                    {docs.length}
-                  </span>
-                  <span className="ml-1">documents found</span>
-                </div>
-                <div className="text-gray-600 dark:text-gray-400">
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">
-                    {filters.search ||
-                    filters.category !== "all" ||
-                    filters.visibility !== "all"
-                      ? "Filtered"
-                      : "All"}
-                  </span>
-                  <span className="ml-1">results</span>
-                </div>
-                {isFetching && (
-                  <span className="text-xs text-gray-500">Refreshing…</span>
-                )}
+      {saving && <LoadingOverlay message="Saving your changes..." />}
+
+      {/* Header (auto-hide on scroll) */}
+      <div
+        className={`bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30 transition-transform duration-300 ease-out ${
+          headerHidden ? "-translate-y-full" : "translate-y-0"
+        }`}
+      >
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-5">
+          <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+                  Document Library
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                  {filteredDocuments.length} documents found
+                </p>
               </div>
             </div>
-            <Toolbar />
+
+            <div className="w-full lg:w-auto grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+              <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 border border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`h-9 sm:h-10 flex-1 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                    viewMode === "grid"
+                      ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  }`}
+                  aria-pressed={viewMode === "grid"}
+                  aria-label="Grid view"
+                >
+                  <Grid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`h-9 sm:h-10 flex-1 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                    viewMode === "list"
+                      ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  }`}
+                  aria-pressed={viewMode === "list"}
+                  aria-label="List view"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+
+              {canEdit && (
+                <button
+                  onClick={() => router.push(`/${user?.role}/documents/upload`)}
+                  className="inline-flex items-center justify-center gap-2 h-11 sm:h-12 px-4 sm:px-6 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all duration-200 shadow-sm"
+                >
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="text-sm sm:text-base">Upload</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-2xl p-5">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div className="lg:col-span-6">
-              <label className="block text-sm font-semibold text-gray-900 dark:text-gray-200 mb-2">
-                Search Documents
-              </label>
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="search"
-                  value={filters.search}
-                  onChange={(e) =>
-                    setFilters((f) => ({
-                      ...f,
-                      search: e.target.value,
-                      page: 1,
-                    }))
-                  }
-                  placeholder="Search by title, description, filename..."
-                  className="w-full h-11 pl-10 pr-4 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-800 rounded-xl text-sm text-gray-900 dark:text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  aria-label="Search documents"
+      {/* Filters & Content */}
+      <main className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 py-6">
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 sm:p-5 mb-6">
+            <div className="flex items-start gap-4">
+              <AlertCircle className="w-5 h-5 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-red-900 dark:text-red-100">
+                  Error Occurred
+                </h3>
+                <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                  {error}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm mb-6 sm:mb-8">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+            <div className="flex items-center gap-3">
+              <Filter className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Search & Filter
+              </h2>
+            </div>
+          </div>
+          <div className="p-4 sm:p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="lg:col-span-1">
+                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                  Search Documents
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="search"
+                    placeholder="Search by title or filename..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full h-11 sm:h-12 pl-10 sm:pl-12 pr-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
+                    aria-label="Search documents"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                  Filter by Category
+                </label>
+                <ModernSelect
+                  value={categoryFilter}
+                  onChange={setCategoryFilter}
+                  options={categoryOptions}
+                  placeholder="All Categories"
+                  icon={FolderOpen}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                  Filter by Visibility
+                </label>
+                <ModernSelect
+                  value={visibilityFilter}
+                  onChange={setVisibilityFilter}
+                  options={visibilityOptions}
+                  placeholder="All Visibility"
+                  icon={Shield}
                 />
               </div>
             </div>
-
-            <div className="lg:col-span-3">
-              <ThemedSelect
-                label="Category"
-                value={filters.category}
-                onChange={(v) =>
-                  setFilters((f) => ({ ...f, category: v, page: 1 }))
-                }
-                options={categoryOptions}
-                placeholder="All Categories"
-                ariaLabel="Filter by category"
-              />
-            </div>
-
-            <div className="lg:col-span-3">
-              <ThemedSelect
-                label="Visibility"
-                value={filters.visibility}
-                onChange={(v) =>
-                  setFilters((f) => ({ ...f, visibility: v, page: 1 }))
-                }
-                options={visibilityOptions}
-                placeholder="All Visibility"
-                ariaLabel="Filter by visibility"
-              />
-            </div>
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-        {isLoading ? (
-          <div
-            className={
-              view === "grid"
-                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-                : "space-y-4"
-            }
-          >
-            {Array.from({ length: view === "grid" ? 9 : 6 }).map((_, i) => (
-              <LoadingCard key={i} />
-            ))}
-          </div>
-        ) : docs.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-24 h-24 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <FileText className="w-12 h-12 text-gray-400" />
+        {filteredDocuments.length === 0 ? (
+          <div className="text-center py-14 sm:py-16">
+            <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <FileText className="w-10 h-10 text-gray-400" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              No documents found
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              {debouncedSearch ||
+              categoryFilter !== "all" ||
+              visibilityFilter !== "all"
+                ? "No Matching Documents"
+                : "No Documents Yet"}
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
-              {filters.search ||
-              filters.category !== "all" ||
-              filters.visibility !== "all"
-                ? "Try adjusting your search or filters."
+            <p className="text-gray-600 dark:text-gray-400 mb-6 sm:text-base">
+              {debouncedSearch ||
+              categoryFilter !== "all" ||
+              visibilityFilter !== "all"
+                ? "Try adjusting your search or filter criteria."
                 : "Get started by uploading your first document."}
             </p>
-            {canEdit && (
-              <button
-                onClick={() => router.push(`/${user?.role}/documents/upload`)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-colors"
-              >
-                <Plus className="w-5 h-5" />
-                Upload Document
-              </button>
-            )}
+            {!debouncedSearch &&
+              categoryFilter === "all" &&
+              visibilityFilter === "all" &&
+              canEdit && (
+                <button
+                  onClick={() => router.push(`/${user?.role}/documents/upload`)}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  Upload First Document
+                </button>
+              )}
+          </div>
+        ) : viewMode === "grid" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+            {filteredDocuments.map((doc) => (
+              <DocumentCard key={doc.id} doc={doc} />
+            ))}
           </div>
         ) : (
-          <div
-            className={
-              view === "grid"
-                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-                : "space-y-4"
-            }
-          >
-            {docs.map((doc) =>
-              view === "grid" ? (
-                <DocumentCard key={doc.id} doc={doc} />
-              ) : (
-                <DocumentRow key={doc.id} doc={doc} />
-              )
-            )}
+          <div className="space-y-3 sm:space-y-4">
+            {filteredDocuments.map((doc) => (
+              <DocumentRow key={doc.id} doc={doc} />
+            ))}
           </div>
         )}
-      </div>
+      </main>
 
-      {/* Modals */}
-      <ConfirmModal
-        open={confirm.open}
+      {/* Confirm Delete */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() =>
+          setConfirmDialog({ isOpen: false, documentId: "", documentTitle: "" })
+        }
+        onConfirm={handleDeleteDocument}
         title="Delete Document"
-        message={`Are you sure you want to permanently delete "${confirm.title}"? This action cannot be undone.`}
-        onCancel={() => setConfirm({ open: false, id: "", title: "" })}
-        onConfirm={confirmDelete}
+        message={`Are you sure you want to permanently delete the document "${confirmDialog.documentTitle}"? This action cannot be undone.`}
       />
 
+      {/* Document Preview Modal */}
       <DocumentPreviewModal
-        isOpen={preview.open}
+        isOpen={previewModal.isOpen}
         onClose={() =>
-          setPreview({
-            open: false,
-            id: "",
-            title: "",
+          setPreviewModal({
+            isOpen: false,
+            documentId: "",
+            documentTitle: "",
             fileName: "",
-            mime: "",
+            mimeType: "",
             canDownload: false,
           })
         }
-        documentId={preview.id}
-        documentTitle={preview.title}
-        fileName={preview.fileName}
-        mimeType={preview.mime}
-        canDownload={preview.canDownload}
+        documentId={previewModal.documentId}
+        documentTitle={previewModal.documentTitle}
+        fileName={previewModal.fileName}
+        mimeType={previewModal.mimeType}
+        canDownload={previewModal.canDownload}
       />
     </div>
   );
@@ -4480,1130 +4937,46 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 ## app\(dashboard)\[role]\documents\upload\page.tsx
 
 ```typescript
+// app\(dashboard)\[role]\documents\upload\page.tsx
+
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import api from "@/lib/api";
-import { useQueryClient } from "@tanstack/react-query";
-import { DocumentCategory, DocumentVisibility, UserRole } from "@/types";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import LoadingButton from "@/components/LoadingButton";
 import { useToast } from "@/contexts/ToastContext";
 import {
   Upload,
   FileText,
   X,
-  Save,
-  AlertCircle,
-  Info,
-  Settings,
-  Globe,
-  Lock,
-  Building,
-  Tag,
-  ArrowLeft,
-  Plus,
-  Trash2,
   ChevronDown,
-  Check
-} from "lucide-react";
-
-// Modern Select Component
-const ModernSelect = ({ value, onChange, options, placeholder, icon: Icon }: {
-  value: string;
-  onChange: (value: string) => void;
-  options: { value: string; label: string }[];
-  placeholder?: string;
-  icon?: React.ElementType;
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const selectedOption = options.find(opt => opt.value === value);
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-12 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-left flex items-center justify-between hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm"
-      >
-        <div className="flex items-center gap-3">
-          {Icon && <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
-          <span className={selectedOption ? "text-gray-900 dark:text-white font-medium" : "text-gray-500 dark:text-gray-400"}>
-            {selectedOption ? selectedOption.label : placeholder}
-          </span>
-        </div>
-        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-      
-      {isOpen && (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setIsOpen(false)} />
-          <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-40 max-h-64 overflow-auto">
-            {options.map((option, index) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => {
-                  onChange(option.value);
-                  setIsOpen(false);
-                }}
-                className={`w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between group transition-colors duration-150 ${
-                  index === 0 ? 'rounded-t-xl' : ''
-                } ${index === options.length - 1 ? 'rounded-b-xl' : ''}`}
-              >
-                <span className="text-gray-900 dark:text-white font-medium">{option.label}</span>
-                {value === option.value && (
-                  <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                )}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-};
-
-// Modern Toggle Switch
-const ModernToggle = ({ checked, onChange, label, description }: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  label: string;
-  description?: string;
-}) => {
-  return (
-    <div className="flex items-start justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200">
-      <div className="flex-1 min-w-0 mr-4">
-        <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">{label}</h4>
-        {description && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{description}</p>
-        )}
-      </div>
-      <button
-        type="button"
-        onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
-          checked ? 'bg-blue-600 dark:bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-        }`}
-      >
-        <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ${
-            checked ? 'translate-x-6' : 'translate-x-1'
-          }`}
-        />
-      </button>
-    </div>
-  );
-};
-
-
-
-export default function UploadPage() {
-  const { user } = useAuth();
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const [file, setFile] = useState<File | null>(null);
-  const [dragActive, setDragActive] = useState(false);
-  const toast = useToast();
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    category: DocumentCategory.OTHER,
-    visibility: DocumentVisibility.PRIVATE,
-    is_viewable_only: false,
-    tags: "",
-  });
-  const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState("");
-
-  // Check if user is authenticated
-  if (!user) {
-    router.push('/login');
-    return null;
-  }
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!file) {
-      setError("Please select a file to upload");
-      return;
-    }
-
-    setIsUploading(true);
-    setError("");
-
-    const uploadData = new FormData();
-    uploadData.append("file", file);
-    uploadData.append("title", formData.title);
-    uploadData.append("description", formData.description);
-    uploadData.append("category", formData.category);
-    uploadData.append("tags", formData.tags);
-
-    // Only add these fields for staff uploads
-    if (user?.role !== UserRole.CUSTOMER) {
-      uploadData.append("visibility", formData.visibility);
-      uploadData.append("is_viewable_only", formData.is_viewable_only.toString());
-    }
-
-    try {
-      // Use different endpoints based on user role
-      const endpoint = user?.role === UserRole.CUSTOMER
-        ? "/documents/customer-upload"
-        : "/documents/";
-
-      await api.post(endpoint, uploadData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      toast.success('Document uploaded successfully');
-      // Prime the list view with fresh data and then navigate
-      queryClient.invalidateQueries({ queryKey: ["documents"] });
-      router.push(`/${user?.role}/documents`);
-    } catch (err) {
-      const axiosErr = err as { response?: { data?: { detail?: unknown } } };
-      const msg = axiosErr?.response?.data?.detail;
-      const friendly = typeof msg === 'string' ? msg : 'Error uploading document';
-      setError(friendly);
-      toast.error(friendly);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const getVisibilityIcon = (visibility: string) => {
-    switch (visibility) {
-      case 'public': return Globe;
-      case 'private': return Lock;
-      default: return Building;
-    }
-  };
-
-  const categoryOptions = Object.values(DocumentCategory).map(category => ({
-    value: category,
-    label: category.charAt(0).toUpperCase() + category.slice(1).replace('_', ' ')
-  }));
-
-  const visibilityOptions = Object.values(DocumentVisibility).map(visibility => ({
-    value: visibility,
-    label: visibility.charAt(0).toUpperCase() + visibility.slice(1)
-  }));
-
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      {/* Loading Overlay */}
-      <LoadingOverlay
-        isVisible={isUploading}
-        message="Uploading your document..."
-        title="Processing"
-      />
-
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push(`/${user?.role}/documents`)}
-              className="p-2.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Upload className="w-6 h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Upload Document</h1>
-                <p className="text-gray-600 dark:text-gray-400">Add a new document to the system</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Error Alert */}
-          {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-6">
-              <div className="flex items-start gap-4">
-                <AlertCircle className="w-6 h-6 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="text-lg font-semibold text-red-900 dark:text-red-100">Upload Error</h3>
-                  <p className="text-red-700 dark:text-red-300 mt-1">{error}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Customer Notice */}
-          {user?.role === UserRole.CUSTOMER && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6">
-              <div className="flex items-start gap-4">
-                <Info className="w-6 h-6 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">Document Review Process</h3>
-                  <p className="text-blue-700 dark:text-blue-300 mt-1">
-                    Your uploaded documents will be reviewed by our staff before being made available. You&apos;ll receive a notification once the review is complete.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* File Upload */}
-          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-            <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
-                  <Upload className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">File Upload</h2>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="space-y-3">
-                <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-                  Document File
-                  <span className="text-red-500 ml-1">*</span>
-                </label>
-                <div
-                  className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-200 ${
-                    dragActive
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : file
-                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
-                      : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 bg-gray-50 dark:bg-gray-800'
-                  }`}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                >
-                  {file ? (
-                    <div className="flex flex-col items-center space-y-4">
-                      <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center">
-                        <FileText className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-lg text-gray-900 dark:text-white">{file.name}</p>
-                        <p className="text-gray-600 dark:text-gray-400">{formatFileSize(file.size)}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setFile(null)}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-xl hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors font-medium text-sm"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Remove file
-                      </button>
-                    </div>
-                  ) : (
-                    <div>
-                      <label htmlFor="file-upload" className="cursor-pointer block">
-                        <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                          <Plus className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                          {dragActive ? 'Drop your file here' : 'Click to upload or drag and drop'}
-                        </p>
-                        <p className="text-gray-600 dark:text-gray-400">
-                          PDF, DOC, DOCX, XLS, XLSX files up to 50MB
-                        </p>
-                      </label>
-                      <input
-                        id="file-upload"
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.doc,.docx,.xls,.xlsx"
-                        onChange={handleFileChange}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Document Information */}
-          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-            <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                  <Info className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Document Information</h2>
-              </div>
-            </div>
-            <div className="p-6 space-y-6">
-              <div className="space-y-3">
-                <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-                  Document Title
-                  <span className="text-red-500 ml-1">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Enter a clear, descriptive title for your document"
-                  required
-                  className="w-full h-12 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
-                />
-              </div>
-
-              <div className="space-y-3">
-                <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={4}
-                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 resize-none shadow-sm"
-                  placeholder="Provide a detailed description of the document content and purpose..."
-                />
-              </div>
-
-              <div className="space-y-3">
-                <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-                  Tags
-                </label>
-                <input
-                  type="text"
-                  value={formData.tags}
-                  onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                  placeholder="important, contract, legal, 2024"
-                  className="w-full h-12 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
-                />
-                <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Separate multiple tags with commas to help organize and search for documents more effectively
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Document Settings */}
-          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-            <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                  <Settings className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                </div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Document Settings</h2>
-              </div>
-            </div>
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-                    Category
-                    <span className="text-red-500 ml-1">*</span>
-                  </label>
-                  <ModernSelect
-                    value={formData.category}
-                    onChange={(value) => setFormData({ ...formData, category: value as DocumentCategory })}
-                    options={categoryOptions}
-                    placeholder="Select document category"
-                    icon={Tag}
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-                    Visibility Level
-                    <span className="text-red-500 ml-1">*</span>
-                  </label>
-                  {user?.role === UserRole.CUSTOMER ? (
-                    <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-                      <Lock className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      <span className="font-medium text-gray-700 dark:text-gray-300">
-                        Private (Staff Review Required)
-                      </span>
-                    </div>
-                  ) : (
-                    <ModernSelect
-                      value={formData.visibility}
-                      onChange={(value) => setFormData({ ...formData, visibility: value as DocumentVisibility })}
-                      options={visibilityOptions}
-                      placeholder="Select visibility level"
-                      icon={getVisibilityIcon(formData.visibility)}
-                    />
-                  )}
-                </div>
-              </div>
-
-              {user?.role !== UserRole.CUSTOMER && (
-                <ModernToggle
-                  checked={formData.is_viewable_only}
-                  onChange={(checked) => setFormData({ ...formData, is_viewable_only: checked })}
-                  label="View-Only Mode"
-                  description="When enabled, users can only preview the document online and cannot download it to their device"
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <button
-              type="button"
-              onClick={() => router.push(`/${user?.role}/documents`)}
-              className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
-            >
-              <X className="w-4 h-4" />
-              Cancel
-            </button>
-            <LoadingButton
-              type="submit"
-              isLoading={isUploading}
-              loadingText="Uploading Document..."
-              variant="primary"
-              size="md"
-              className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
-              icon={<Save className="w-4 h-4" />}
-            >
-              Upload Document
-            </LoadingButton>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-```
-
-## app\(dashboard)\[role]\documents\uploads\layout.tsx
-
-```typescript
-export const dynamicParams = false;
-
-export async function generateStaticParams() {
-  return [{ role: "admin" }, { role: "editor" }, { role: "customer" }];
-}
-
-export default function Layout({ children }: { children: React.ReactNode }) {
-  return children;
-}
-
-```
-
-## app\(dashboard)\[role]\documents\uploads\page.tsx
-
-```typescript
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import api from "@/lib/api";
-import { DocumentCategory, DocumentVisibility, UserRole } from "@/types";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import LoadingButton from "@/components/LoadingButton";
-import {
-  Upload,
-  FileText,
-  X,
-  Save,
-  AlertCircle,
-  Info,
-  Settings,
-  Globe,
-  Lock,
-  Building,
-  Tag,
-  ArrowLeft,
-  Plus,
-  Trash2,
-  ChevronDown,
-  Check
-} from "lucide-react";
-
-// Modern Select Component
-const ModernSelect = ({ value, onChange, options, placeholder, icon: Icon }: {
-  value: string;
-  onChange: (value: string) => void;
-  options: { value: string; label: string }[];
-  placeholder?: string;
-  icon?: React.ElementType;
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const selectedOption = options.find(opt => opt.value === value);
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-12 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-left flex items-center justify-between hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm"
-      >
-        <div className="flex items-center gap-3">
-          {Icon && <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
-          <span className={selectedOption ? "text-gray-900 dark:text-white font-medium" : "text-gray-500 dark:text-gray-400"}>
-            {selectedOption ? selectedOption.label : placeholder}
-          </span>
-        </div>
-        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-      
-      {isOpen && (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setIsOpen(false)} />
-          <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-40 max-h-64 overflow-auto">
-            {options.map((option, index) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => {
-                  onChange(option.value);
-                  setIsOpen(false);
-                }}
-                className={`w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between group transition-colors duration-150 ${
-                  index === 0 ? 'rounded-t-xl' : ''
-                } ${index === options.length - 1 ? 'rounded-b-xl' : ''}`}
-              >
-                <span className="text-gray-900 dark:text-white font-medium">{option.label}</span>
-                {value === option.value && (
-                  <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                )}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-};
-
-// Modern Toggle Switch
-const ModernToggle = ({ checked, onChange, label, description }: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  label: string;
-  description?: string;
-}) => {
-  return (
-    <div className="flex items-start justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200">
-      <div className="flex-1 min-w-0 mr-4">
-        <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">{label}</h4>
-        {description && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{description}</p>
-        )}
-      </div>
-      <button
-        type="button"
-        onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
-          checked ? 'bg-blue-600 dark:bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
-        }`}
-      >
-        <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ${
-            checked ? 'translate-x-6' : 'translate-x-1'
-          }`}
-        />
-      </button>
-    </div>
-  );
-};
-
-
-
-export default function UploadPage() {
-  const { user } = useAuth();
-  const router = useRouter();
-  const [file, setFile] = useState<File | null>(null);
-  const [dragActive, setDragActive] = useState(false);
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    category: DocumentCategory.OTHER,
-    visibility: DocumentVisibility.PRIVATE,
-    is_viewable_only: false,
-    tags: "",
-  });
-  const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState("");
-
-  // Check if user is authenticated
-  if (!user) {
-    router.push('/login');
-    return null;
-  }
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!file) {
-      setError("Please select a file to upload");
-      return;
-    }
-
-    setIsUploading(true);
-    setError("");
-
-    const uploadData = new FormData();
-    uploadData.append("file", file);
-    uploadData.append("title", formData.title);
-    uploadData.append("description", formData.description);
-    uploadData.append("category", formData.category);
-    uploadData.append("tags", formData.tags);
-
-    // Only add these fields for staff uploads
-    if (user?.role !== UserRole.CUSTOMER) {
-      uploadData.append("visibility", formData.visibility);
-      uploadData.append("is_viewable_only", formData.is_viewable_only.toString());
-    }
-
-    try {
-      // Use different endpoints based on user role
-      const endpoint = user?.role === UserRole.CUSTOMER
-        ? "/documents/customer-upload"
-        : "/documents/";
-
-      await api.post(endpoint, uploadData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      router.push(`/${user?.role}/documents`);
-    } catch (err) {
-      const axiosErr = err as { response?: { data?: { detail?: unknown } } };
-      const msg = axiosErr?.response?.data?.detail;
-      setError(typeof msg === 'string' ? msg : 'Error uploading document');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const getVisibilityIcon = (visibility: string) => {
-    switch (visibility) {
-      case 'public': return Globe;
-      case 'private': return Lock;
-      default: return Building;
-    }
-  };
-
-  const categoryOptions = Object.values(DocumentCategory).map(category => ({
-    value: category,
-    label: category.charAt(0).toUpperCase() + category.slice(1).replace('_', ' ')
-  }));
-
-  const visibilityOptions = Object.values(DocumentVisibility).map(visibility => ({
-    value: visibility,
-    label: visibility.charAt(0).toUpperCase() + visibility.slice(1)
-  }));
-
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      {/* Loading Overlay */}
-      <LoadingOverlay
-        isVisible={isUploading}
-        message="Uploading your document..."
-        title="Processing"
-      />
-
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push(`/${user?.role}/documents`)}
-              className="p-2.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Upload className="w-6 h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Upload Document</h1>
-                <p className="text-gray-600 dark:text-gray-400">Add a new document to the system</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Error Alert */}
-          {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-6">
-              <div className="flex items-start gap-4">
-                <AlertCircle className="w-6 h-6 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="text-lg font-semibold text-red-900 dark:text-red-100">Upload Error</h3>
-                  <p className="text-red-700 dark:text-red-300 mt-1">{error}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Customer Notice */}
-          {user?.role === UserRole.CUSTOMER && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6">
-              <div className="flex items-start gap-4">
-                <Info className="w-6 h-6 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">Document Review Process</h3>
-                  <p className="text-blue-700 dark:text-blue-300 mt-1">
-                    Your uploaded documents will be reviewed by our staff before being made available. You&apos;ll receive a notification once the review is complete.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* File Upload */}
-          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-            <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
-                  <Upload className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">File Upload</h2>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="space-y-3">
-                <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-                  Document File
-                  <span className="text-red-500 ml-1">*</span>
-                </label>
-                <div
-                  className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-200 ${
-                    dragActive 
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                      : file 
-                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' 
-                      : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 bg-gray-50 dark:bg-gray-800'
-                  }`}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                >
-                  {file ? (
-                    <div className="flex flex-col items-center space-y-4">
-                      <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center">
-                        <FileText className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-lg text-gray-900 dark:text-white">{file.name}</p>
-                        <p className="text-gray-600 dark:text-gray-400">{formatFileSize(file.size)}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setFile(null)}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-xl hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors font-medium text-sm"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Remove file
-                      </button>
-                    </div>
-                  ) : (
-                    <div>
-                      <label htmlFor="file-upload" className="cursor-pointer block">
-                        <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                          <Plus className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                          {dragActive ? 'Drop your file here' : 'Click to upload or drag and drop'}
-                        </p>
-                        <p className="text-gray-600 dark:text-gray-400">
-                          PDF, DOC, DOCX, XLS, XLSX files up to 50MB
-                        </p>
-                      </label>
-                      <input
-                        id="file-upload"
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.doc,.docx,.xls,.xlsx"
-                        onChange={handleFileChange}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Document Information */}
-          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-            <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                  <Info className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Document Information</h2>
-              </div>
-            </div>
-            <div className="p-6 space-y-6">
-              <div className="space-y-3">
-                <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-                  Document Title
-                  <span className="text-red-500 ml-1">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Enter a clear, descriptive title for your document"
-                  required
-                  className="w-full h-12 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
-                />
-              </div>
-
-              <div className="space-y-3">
-                <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={4}
-                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 resize-none shadow-sm"
-                  placeholder="Provide a detailed description of the document content and purpose..."
-                />
-              </div>
-
-              <div className="space-y-3">
-                <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-                  Tags
-                </label>
-                <input
-                  type="text"
-                  value={formData.tags}
-                  onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                  placeholder="important, contract, legal, 2024"
-                  className="w-full h-12 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
-                />
-                <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Separate multiple tags with commas to help organize and search for documents more effectively
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Document Settings */}
-          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-            <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                  <Settings className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                </div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Document Settings</h2>
-              </div>
-            </div>
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-                    Category
-                    <span className="text-red-500 ml-1">*</span>
-                  </label>
-                  <ModernSelect
-                    value={formData.category}
-                    onChange={(value) => setFormData({ ...formData, category: value as DocumentCategory })}
-                    options={categoryOptions}
-                    placeholder="Select document category"
-                    icon={Tag}
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-                    Visibility Level
-                    <span className="text-red-500 ml-1">*</span>
-                  </label>
-                  {user?.role === UserRole.CUSTOMER ? (
-                    <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-                      <Lock className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      <span className="font-medium text-gray-700 dark:text-gray-300">
-                        Private (Staff Review Required)
-                      </span>
-                    </div>
-                  ) : (
-                    <ModernSelect
-                      value={formData.visibility}
-                      onChange={(value) => setFormData({ ...formData, visibility: value as DocumentVisibility })}
-                      options={visibilityOptions}
-                      placeholder="Select visibility level"
-                      icon={getVisibilityIcon(formData.visibility)}
-                    />
-                  )}
-                </div>
-              </div>
-
-              {user?.role !== UserRole.CUSTOMER && (
-                <ModernToggle
-                  checked={formData.is_viewable_only}
-                  onChange={(checked) => setFormData({ ...formData, is_viewable_only: checked })}
-                  label="View-Only Mode"
-                  description="When enabled, users can only preview the document online and cannot download it to their device"
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <button
-              type="button"
-              onClick={() => router.push(`/${user?.role}/documents`)}
-              className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
-            >
-              <X className="w-4 h-4" />
-              Cancel
-            </button>
-            <LoadingButton
-              type="submit"
-              isLoading={isUploading}
-              loadingText="Uploading Document..."
-              variant="primary"
-              size="md"
-              className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
-              icon={<Save className="w-4 h-4" />}
-            >
-              Upload Document
-            </LoadingButton>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-```
-
-## app\(dashboard)\[role]\documents\[id]\layout.tsx
-
-```typescript
-// Change this from 'false' to 'true' to allow dynamic rendering of document pages
-export const dynamicParams = true;
-
-export async function generateStaticParams() {
-  // This function can now be removed or left as is, since dynamicParams = true
-  // will handle any ID not generated here.
-  return [];
-}
-
-export default function DocumentLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return children;
-}
-
-```
-
-## app\(dashboard)\[role]\documents\[id]\edit\page.tsx
-
-```typescript
-"use client";
-
-import { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import {
-  AlertCircle,
-  ArrowLeft,
-  Save,
-  X,
-  FileText,
   Eye,
-  Users,
   Tag,
   Info,
   Loader2,
-  ChevronDown,
+  CheckCircle,
+  AlertCircle,
+  FolderOpen,
+  Search,
+  UserPlus,
   Check,
   Lock,
   Globe,
   Building,
+  Users,
   Sparkles,
+  ArrowLeft,
 } from "lucide-react";
 import api from "@/lib/api";
-import { Document, DocumentCategory, DocumentVisibility, User } from "@/types";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import { useToast } from "@/contexts/ToastContext";
+import { UserRole, DocumentVisibility, User } from "@/types";
+import { useCategories } from "@/hooks/useCategories";
+
+interface UploadProgress {
+  fileName: string;
+  progress: number;
+  status: "pending" | "uploading" | "success" | "error";
+  message?: string;
+}
 
 // Modern Select Component
 const ModernSelect = ({
@@ -5684,19 +5057,37 @@ const ModernSelect = ({
   );
 };
 
-// Modern MultiSelect Component
-const ModernMultiSelect = ({
+// Enhanced Searchable MultiSelect Component
+const SearchableMultiSelect = ({
   selected,
   onChange,
   options,
   placeholder,
+  searchPlaceholder = "Search users...",
 }: {
   selected: string[];
   onChange: (selected: string[]) => void;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; email?: string }[];
   placeholder?: string;
+  searchPlaceholder?: string;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [displayLimit, setDisplayLimit] = useState(50);
+
+  // Filter options based on search query
+  const filteredOptions = useMemo(() => {
+    if (!searchQuery.trim()) return options.slice(0, displayLimit);
+
+    const query = searchQuery.toLowerCase();
+    return options
+      .filter(
+        (opt) =>
+          opt.label.toLowerCase().includes(query) ||
+          (opt.email && opt.email.toLowerCase().includes(query))
+      )
+      .slice(0, displayLimit);
+  }, [options, searchQuery, displayLimit]);
 
   const toggleOption = (value: string) => {
     if (selected.includes(value)) {
@@ -5706,15 +5097,42 @@ const ModernMultiSelect = ({
     }
   };
 
+  const toggleAll = () => {
+    if (filteredOptions.every((opt) => selected.includes(opt.value))) {
+      // Deselect all visible
+      const visibleValues = filteredOptions.map((opt) => opt.value);
+      onChange(selected.filter((item) => !visibleValues.includes(item)));
+    } else {
+      // Select all visible
+      const newSelected = [...selected];
+      filteredOptions.forEach((opt) => {
+        if (!newSelected.includes(opt.value)) {
+          newSelected.push(opt.value);
+        }
+      });
+      onChange(newSelected);
+    }
+  };
+
   const selectedLabels = options
     .filter((opt) => selected.includes(opt.value))
     .map((opt) => opt.label);
+
+  const handleLoadMore = () => {
+    setDisplayLimit((prev) => prev + 50);
+  };
 
   return (
     <div className="relative">
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen(!isOpen);
+          if (!isOpen) {
+            setSearchQuery("");
+            setDisplayLimit(50);
+          }
+        }}
         className="w-full min-h-12 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-left flex items-center justify-between hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm"
       >
         <div className="flex-1">
@@ -5723,8 +5141,9 @@ const ModernMultiSelect = ({
               {selectedLabels.slice(0, 3).map((label, index) => (
                 <span
                   key={index}
-                  className="inline-flex items-center px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium rounded-lg"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium rounded-lg"
                 >
+                  <UserPlus className="w-3 h-3" />
                   {label}
                 </span>
               ))}
@@ -5753,32 +5172,1255 @@ const ModernMultiSelect = ({
             className="fixed inset-0 z-30"
             onClick={() => setIsOpen(false)}
           />
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-40 w-full max-h-96 overflow-hidden flex flex-col">
+            {/* Search Header */}
+            <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setDisplayLimit(50);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  placeholder={searchPlaceholder}
+                  className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  autoFocus
+                />
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex items-center justify-between mt-3">
+                <div className="text-xs text-gray-600 dark:text-gray-400">
+                  {selected.length} selected
+                  {searchQuery && ` • ${filteredOptions.length} results`}
+                </div>
+                <button
+                  type="button"
+                  onClick={toggleAll}
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                >
+                  {filteredOptions.every((opt) => selected.includes(opt.value))
+                    ? "Deselect all"
+                    : "Select all visible"}
+                </button>
+              </div>
+            </div>
+
+            {/* Options List */}
+            <div className="flex-1 overflow-y-auto">
+              {filteredOptions.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Search className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    No users found matching &quot;{searchQuery}&quot;
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {filteredOptions.map((option, index) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => toggleOption(option.value)}
+                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 transition-colors duration-150 ${
+                        index === 0 ? "rounded-t-lg" : ""
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 border-2 rounded-md flex items-center justify-center transition-all duration-150 flex-shrink-0 ${
+                          selected.includes(option.value)
+                            ? "bg-blue-600 dark:bg-blue-500 border-blue-600 dark:border-blue-500"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
+                      >
+                        {selected.includes(option.value) && (
+                          <Check className="w-3 h-3 text-white" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-900 dark:text-white font-medium">
+                            {option.label}
+                          </span>
+                          {option.email && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {option.email}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+
+                  {/* Load More Button */}
+                  {options.length > displayLimit && !searchQuery && (
+                    <div className="p-3 border-t border-gray-200 dark:border-gray-700">
+                      <button
+                        type="button"
+                        onClick={handleLoadMore}
+                        className="w-full py-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                      >
+                        Load more users ({options.length - displayLimit}{" "}
+                        remaining)
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// Modern Toggle Switch
+const ModernToggle = ({
+  checked,
+  onChange,
+  label,
+  description,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+  description?: string;
+}) => {
+  return (
+    <div className="flex items-start justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200">
+      <div className="flex-1 min-w-0 mr-4">
+        <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+          {label}
+        </h4>
+        {description && (
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            {description}
+          </p>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
+          checked
+            ? "bg-blue-600 dark:bg-blue-500"
+            : "bg-gray-300 dark:bg-gray-600"
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ${
+            checked ? "translate-x-6" : "translate-x-1"
+          }`}
+        />
+      </button>
+    </div>
+  );
+};
+
+export default function DocumentUploadPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const toast = useToast();
+  const { data: categories, isLoading: categoriesLoading } = useCategories();
+
+  const [files, setFiles] = useState<File[]>([]);
+  const [customers, setCustomers] = useState<User[]>([]);
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    category: "",
+    visibility: DocumentVisibility.PRIVATE,
+    is_viewable_only: false,
+    assigned_customers: [] as string[],
+    tags: "",
+  });
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+
+  const fetchCustomers = useCallback(async () => {
+    try {
+      const response = await api.get("/users?role=customer&status=approved");
+      setCustomers(response.data);
+    } catch (error) {
+      console.error("Error fetching customers:", error);
+      toast.error("Failed to load customer list");
+    }
+  }, [toast]);
+
+  // Fetch customers on mount
+  useEffect(() => {
+    fetchCustomers();
+  }, [fetchCustomers]);
+
+  // Set default category when categories load
+  useEffect(() => {
+    if (categories && categories.length > 0 && !formData.category) {
+      const defaultCategory =
+        categories.find((cat) => cat.is_default) || categories[0];
+      setFormData((prev) => ({ ...prev, category: defaultCategory.name }));
+    }
+  }, [categories, formData.category]);
+
+  const categoryOptions = useMemo(() => {
+    if (!categories) return [];
+    return categories
+      .filter((cat) => cat.is_active)
+      .map((cat) => ({
+        value: cat.name,
+        label: cat.label,
+      }));
+  }, [categories]);
+
+  const visibilityOptions = Object.values(DocumentVisibility).map(
+    (visibility) => ({
+      value: visibility,
+      label: visibility.charAt(0).toUpperCase() + visibility.slice(1),
+    })
+  );
+
+  // Enhanced customer options with email for better search
+  const customerOptions = customers.map((c) => ({
+    value: c.id,
+    label: c.username,
+    email: c.email,
+  }));
+
+  const getVisibilityIcon = (visibility: string) => {
+    switch (visibility) {
+      case "public":
+        return Globe;
+      case "private":
+        return Lock;
+      default:
+        return Building;
+    }
+  };
+
+  const getCategoryColor = (categoryName: string) => {
+    const category = categories?.find((cat) => cat.name === categoryName);
+    if (!category)
+      return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
+
+    const colorMap: Record<string, string> = {
+      blue: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+      emerald:
+        "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+      red: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+      purple:
+        "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+      amber:
+        "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+      indigo:
+        "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+      gray: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+    };
+
+    return colorMap[category.color || "gray"] || colorMap.gray;
+  };
+
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    setFiles((prev) => [...prev, ...droppedFiles]);
+  }, []);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const selectedFiles = Array.from(e.target.files);
+      setFiles((prev) => [...prev, ...selectedFiles]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadFile = async (file: File, index: number) => {
+    const formDataToSend = new FormData();
+    formDataToSend.append("file", file);
+    formDataToSend.append("title", formData.title || file.name);
+    formDataToSend.append("description", formData.description);
+    formDataToSend.append("category", formData.category);
+    formDataToSend.append("visibility", formData.visibility);
+    formDataToSend.append(
+      "is_viewable_only",
+      String(formData.is_viewable_only)
+    );
+
+    // FIX: Send assigned_customers as comma-separated string, not JSON
+    if (
+      formData.visibility === DocumentVisibility.PRIVATE &&
+      formData.assigned_customers.length > 0
+    ) {
+      // Send as comma-separated string instead of JSON
+      formDataToSend.append(
+        "assigned_customers",
+        formData.assigned_customers.join(",")
+      );
+    }
+
+    if (formData.tags) {
+      formDataToSend.append("tags", formData.tags);
+    }
+
+    try {
+      const endpoint =
+        user?.role === UserRole.CUSTOMER
+          ? "/documents/customer-upload"
+          : "/documents/";
+
+      const response = await api.post(endpoint, formDataToSend, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / (progressEvent.total || 1)
+          );
+          setUploadProgress((prev) =>
+            prev.map((p, i) =>
+              i === index ? { ...p, progress: percentCompleted } : p
+            )
+          );
+        },
+      });
+
+      setUploadProgress((prev) =>
+        prev.map((p, i) =>
+          i === index
+            ? {
+                ...p,
+                status: "success",
+                progress: 100,
+                message: "Uploaded successfully",
+              }
+            : p
+        )
+      );
+
+      return response.data;
+    } catch (error: unknown) {
+      console.error("Upload error:", error);
+      setUploadProgress((prev) =>
+        prev.map((p, i) =>
+          i === index
+            ? {
+                ...p,
+                status: "error",
+                message:
+                  (error as { response?: { data?: { detail?: string } } })
+                    .response?.data?.detail || "Upload failed",
+              }
+            : p
+        )
+      );
+      throw error;
+    }
+  };
+
+  const handleUpload = async () => {
+    // Validation
+    if (files.length === 0) {
+      toast.error("Please select at least one file");
+      return;
+    }
+
+    if (!formData.category) {
+      toast.error("Please select a category");
+      return;
+    }
+
+    // Additional validation for private documents
+    if (
+      formData.visibility === DocumentVisibility.PRIVATE &&
+      formData.assigned_customers.length === 0
+    ) {
+      toast.error("Please select at least one customer for private documents");
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(
+      files.map((file) => ({
+        fileName: file.name,
+        progress: 0,
+        status: "pending",
+      }))
+    );
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (let i = 0; i < files.length; i++) {
+      setUploadProgress((prev) =>
+        prev.map((p, idx) => (idx === i ? { ...p, status: "uploading" } : p))
+      );
+
+      try {
+        await uploadFile(files[i], i);
+        successCount++;
+      } catch (error) {
+        errorCount++;
+        console.error(`Failed to upload ${files[i].name}:`, error);
+      }
+    }
+
+    setIsUploading(false);
+
+    if (successCount > 0) {
+      toast.success(`Successfully uploaded ${successCount} file(s)`);
+      if (errorCount === 0) {
+        setTimeout(() => {
+          router.push(`/${user?.role}/documents`);
+        }, 1500);
+      }
+    }
+
+    if (errorCount > 0) {
+      toast.error(`Failed to upload ${errorCount} file(s)`);
+    }
+  };
+
+  if (categoriesLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      {/* Header */}
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <button
+              onClick={() => router.push(`/${user?.role}/documents`)}
+              className="p-2.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Upload className="w-6 h-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">
+                  Upload Documents
+                </h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                  Upload and organize your documents securely
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="space-y-8">
+          {/* File Upload Area */}
+          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+            <div className="px-4 sm:px-6 py-5 border-b border-gray-200 dark:border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Upload className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+                  Select Files
+                </h2>
+              </div>
+            </div>
+            <div className="p-4 sm:p-6">
+              <div
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
+                  dragActive
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                    : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
+                }`}
+              >
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleFileChange}
+                  className="hidden"
+                  id="file-upload"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.png,.jpg,.jpeg"
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="cursor-pointer inline-flex flex-col items-center"
+                >
+                  <Upload className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" />
+                  <span className="text-gray-900 dark:text-white font-medium">
+                    Drop files here or click to browse
+                  </span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    PDF, DOC, DOCX, XLS, XLSX, TXT, PNG, JPG up to 10MB
+                  </span>
+                </label>
+              </div>
+
+              {/* Selected Files */}
+              {files.length > 0 && (
+                <div className="mt-6 space-y-3">
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Selected Files ({files.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {files.map((file, index) => {
+                      const progress = uploadProgress[index];
+                      return (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700"
+                        >
+                          <div className="flex items-center space-x-3 flex-1">
+                            <FileText className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                {file.name}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {(file.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                              {progress && (
+                                <div className="mt-2">
+                                  {progress.status === "uploading" && (
+                                    <div className="flex items-center space-x-2">
+                                      <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                        <div
+                                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                          style={{
+                                            width: `${progress.progress}%`,
+                                          }}
+                                        />
+                                      </div>
+                                      <span className="text-xs text-gray-600 dark:text-gray-400">
+                                        {progress.progress}%
+                                      </span>
+                                    </div>
+                                  )}
+                                  {progress.status === "success" && (
+                                    <div className="flex items-center space-x-2 text-green-600 dark:text-green-400">
+                                      <CheckCircle className="w-4 h-4" />
+                                      <span className="text-xs">
+                                        {progress.message}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {progress.status === "error" && (
+                                    <div className="flex items-center space-x-2 text-red-600 dark:text-red-400">
+                                      <AlertCircle className="w-4 h-4" />
+                                      <span className="text-xs">
+                                        {progress.message}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {!isUploading && (
+                            <button
+                              onClick={() => removeFile(index)}
+                              className="p-2 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Basic Information */}
+          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+            <div className="px-4 sm:px-6 py-5 border-b border-gray-200 dark:border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Info className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+                  Basic Information
+                </h2>
+              </div>
+            </div>
+            <div className="p-4 sm:p-6 space-y-6">
+              <div className="space-y-3">
+                <label
+                  htmlFor="title"
+                  className="block text-sm font-semibold text-gray-900 dark:text-white"
+                >
+                  Document Title
+                </label>
+                <input
+                  id="title"
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                  className="w-full h-12 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
+                  placeholder="Enter a clear, descriptive title (optional - will use filename if empty)"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label
+                  htmlFor="description"
+                  className="block text-sm font-semibold text-gray-900 dark:text-white"
+                >
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  rows={4}
+                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 resize-none shadow-sm"
+                  placeholder="Provide a detailed description..."
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Document Settings */}
+          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+            <div className="px-4 sm:px-6 py-5 border-b border-gray-200 dark:border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Eye className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                </div>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+                  Document Settings
+                </h2>
+              </div>
+            </div>
+            <div className="p-4 sm:p-6 space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <label className="block text-sm font-semibold text-gray-900 dark:text-white">
+                    Category
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <div className="relative">
+                    <ModernSelect
+                      value={formData.category}
+                      onChange={(value) =>
+                        setFormData({ ...formData, category: value })
+                      }
+                      options={categoryOptions}
+                      placeholder="Select document category"
+                      icon={FolderOpen}
+                    />
+                    {formData.category && (
+                      <div className="mt-2">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg ${getCategoryColor(
+                            formData.category
+                          )}`}
+                        >
+                          <FolderOpen className="w-3 h-3" />
+                          {categoryOptions.find(
+                            (opt) => opt.value === formData.category
+                          )?.label || formData.category}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-sm font-semibold text-gray-900 dark:text-white">
+                    Visibility Level
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <ModernSelect
+                    value={formData.visibility}
+                    onChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        visibility: value as DocumentVisibility,
+                        // Clear assigned customers if not private
+                        assigned_customers:
+                          value === DocumentVisibility.PRIVATE
+                            ? formData.assigned_customers
+                            : [],
+                      })
+                    }
+                    options={visibilityOptions}
+                    placeholder="Select visibility level"
+                    icon={getVisibilityIcon(formData.visibility)}
+                  />
+                  <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5" />
+                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                        {formData.visibility === DocumentVisibility.PUBLIC && (
+                          <span>
+                            <strong>Public:</strong> All users can view this
+                            document
+                          </span>
+                        )}
+                        {formData.visibility === DocumentVisibility.PRIVATE && (
+                          <span>
+                            <strong>Private:</strong> Only assigned users can
+                            access
+                          </span>
+                        )}
+                        {formData.visibility ===
+                          DocumentVisibility.INTERNAL && (
+                          <span>
+                            <strong>Internal:</strong> Only employees can view
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <ModernToggle
+                checked={formData.is_viewable_only}
+                onChange={(checked) =>
+                  setFormData({ ...formData, is_viewable_only: checked })
+                }
+                label="View-Only Mode"
+                description="When enabled, users can only preview the document online and cannot download it."
+              />
+            </div>
+          </div>
+
+          {/* Access Control - Only show for private documents */}
+          {formData.visibility === DocumentVisibility.PRIVATE && (
+            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+              <div className="px-4 sm:px-6 py-5 border-b border-gray-200 dark:border-gray-800">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Users className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+                      Access Control
+                      <span className="text-red-500 ml-1">*</span>
+                    </h2>
+                  </div>
+                  {customers.length > 0 && (
+                    <span className="text-sm text-gray-500 dark:text-gray-400 pl-11 sm:pl-0">
+                      {customers.length} total users available
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="p-4 sm:p-6">
+                <div className="space-y-3">
+                  <label className="block text-sm font-semibold text-gray-900 dark:text-white">
+                    Authorized Customers
+                    <span className="text-red-500 ml-1">
+                      Required for private documents
+                    </span>
+                  </label>
+                  <SearchableMultiSelect
+                    selected={formData.assigned_customers}
+                    onChange={(selected) =>
+                      setFormData({
+                        ...formData,
+                        assigned_customers: selected,
+                      })
+                    }
+                    options={customerOptions}
+                    placeholder="Click to search and select customers..."
+                    searchPlaceholder="Search by username or email..."
+                  />
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-4 h-4 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">
+                        {formData.assigned_customers.length === 0 ? (
+                          <span>
+                            Please select at least one customer who can access
+                            this private document.
+                          </span>
+                        ) : (
+                          <span>
+                            {formData.assigned_customers.length} customer(s)
+                            will have access to this document. Use search to
+                            find users by username or email.
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tags & Labels */}
+          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+            <div className="px-4 sm:px-6 py-5 border-b border-gray-200 dark:border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+                  Tags & Organization
+                </h2>
+              </div>
+            </div>
+            <div className="p-4 sm:p-6">
+              <div className="space-y-3">
+                <label
+                  htmlFor="tags"
+                  className="block text-sm font-semibold text-gray-900 dark:text-white"
+                >
+                  Document Tags
+                </label>
+                <div className="relative">
+                  <Tag className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  <input
+                    id="tags"
+                    type="text"
+                    value={formData.tags}
+                    onChange={(e) =>
+                      setFormData({ ...formData, tags: e.target.value })
+                    }
+                    className="w-full h-12 pl-12 pr-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
+                    placeholder="important, contract, 2024"
+                  />
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                  Separate tags with commas to help organize and find documents.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-start gap-3 pt-4">
+            <button
+              onClick={handleUpload}
+              disabled={files.length === 0 || isUploading || !formData.category}
+              className="flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm disabled:cursor-not-allowed"
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4" />
+                  Upload Documents
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push(`/${user?.role}/documents`)}
+              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
+            >
+              <X className="w-4 h-4" />
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+```
+
+## app\(dashboard)\[role]\documents\[id]\layout.tsx
+
+```typescript
+// app/[role]/documents/[id]/edit/layout.tsx
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Edit Document",
+  description: "Edit document details and settings",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
+};
+
+export const dynamicParams = true;
+
+export async function generateStaticParams() {
+  return [];
+}
+
+export default function DocumentLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <div className="w-full max-w-full overflow-x-hidden">{children}</div>;
+}
+
+```
+
+## app\(dashboard)\[role]\documents\[id]\edit\page.tsx
+
+```typescript
+"use client";
+
+import { useEffect, useState, useMemo } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useParams, useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Save,
+  X,
+  FileText,
+  Eye,
+  Users,
+  Tag,
+  Info,
+  Loader2,
+  ChevronDown,
+  Check,
+  Lock,
+  Globe,
+  Building,
+  Sparkles,
+  FolderOpen,
+  Search,
+  UserPlus,
+} from "lucide-react";
+import api from "@/lib/api";
+import { Document, DocumentVisibility, User, UserRole } from "@/types";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useToast } from "@/contexts/ToastContext";
+import SimpleLoading from "@/components/SimpleLoading";
+import { useCategories } from "@/hooks/useCategories";
+
+// Modern Select Component
+const ModernSelect = ({
+  value,
+  onChange,
+  options,
+  placeholder,
+  icon: Icon,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+  icon?: React.ElementType;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = options.find((opt) => opt.value === value);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full h-12 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-left flex items-center justify-between hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm"
+      >
+        <div className="flex items-center gap-3">
+          {Icon && (
+            <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+          )}
+          <span
+            className={
+              selectedOption
+                ? "text-gray-900 dark:text-white font-medium"
+                : "text-gray-500 dark:text-gray-400"
+            }
+          >
+            {selectedOption ? selectedOption.label : placeholder}
+          </span>
+        </div>
+        <ChevronDown
+          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {isOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-30"
+            onClick={() => setIsOpen(false)}
+          />
           <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-40 max-h-64 overflow-auto">
             {options.map((option, index) => (
               <button
                 key={option.value}
                 type="button"
-                onClick={() => toggleOption(option.value)}
-                className={`w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 transition-colors duration-150 ${
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                className={`w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between group transition-colors duration-150 ${
                   index === 0 ? "rounded-t-xl" : ""
                 } ${index === options.length - 1 ? "rounded-b-xl" : ""}`}
               >
-                <div
-                  className={`w-5 h-5 border-2 rounded-md flex items-center justify-center transition-all duration-150 ${
-                    selected.includes(option.value)
-                      ? "bg-blue-600 dark:bg-blue-500 border-blue-600 dark:border-blue-500"
-                      : "border-gray-300 dark:border-gray-600"
-                  }`}
-                >
-                  {selected.includes(option.value) && (
-                    <Check className="w-3 h-3 text-white" />
-                  )}
-                </div>
                 <span className="text-gray-900 dark:text-white font-medium">
                   {option.label}
                 </span>
+                {value === option.value && (
+                  <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                )}
               </button>
             ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// Enhanced Searchable MultiSelect Component
+const SearchableMultiSelect = ({
+  selected,
+  onChange,
+  options,
+  placeholder,
+  searchPlaceholder = "Search users...",
+}: {
+  selected: string[];
+  onChange: (selected: string[]) => void;
+  options: { value: string; label: string; email?: string }[];
+  placeholder?: string;
+  searchPlaceholder?: string;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [displayLimit, setDisplayLimit] = useState(50);
+
+  // Filter options based on search query
+  const filteredOptions = useMemo(() => {
+    if (!searchQuery.trim()) return options.slice(0, displayLimit);
+
+    const query = searchQuery.toLowerCase();
+    return options
+      .filter(
+        (opt) =>
+          opt.label.toLowerCase().includes(query) ||
+          (opt.email && opt.email.toLowerCase().includes(query))
+      )
+      .slice(0, displayLimit);
+  }, [options, searchQuery, displayLimit]);
+
+  const toggleOption = (value: string) => {
+    if (selected.includes(value)) {
+      onChange(selected.filter((item) => item !== value));
+    } else {
+      onChange([...selected, value]);
+    }
+  };
+
+  const toggleAll = () => {
+    if (filteredOptions.every((opt) => selected.includes(opt.value))) {
+      // Deselect all visible
+      const visibleValues = filteredOptions.map((opt) => opt.value);
+      onChange(selected.filter((item) => !visibleValues.includes(item)));
+    } else {
+      // Select all visible
+      const newSelected = [...selected];
+      filteredOptions.forEach((opt) => {
+        if (!newSelected.includes(opt.value)) {
+          newSelected.push(opt.value);
+        }
+      });
+      onChange(newSelected);
+    }
+  };
+
+  const selectedLabels = options
+    .filter((opt) => selected.includes(opt.value))
+    .map((opt) => opt.label);
+
+  const handleLoadMore = () => {
+    setDisplayLimit((prev) => prev + 50);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          setIsOpen(!isOpen);
+          if (!isOpen) {
+            setSearchQuery("");
+            setDisplayLimit(50);
+          }
+        }}
+        className="w-full min-h-12 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl text-left flex items-center justify-between hover:border-blue-400 dark:hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm"
+      >
+        <div className="flex-1">
+          {selectedLabels.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {selectedLabels.slice(0, 3).map((label, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium rounded-lg"
+                >
+                  <UserPlus className="w-3 h-3" />
+                  {label}
+                </span>
+              ))}
+              {selectedLabels.length > 3 && (
+                <span className="inline-flex items-center px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-sm font-medium rounded-lg">
+                  +{selectedLabels.length - 3} more
+                </span>
+              )}
+            </div>
+          ) : (
+            <span className="text-gray-500 dark:text-gray-400">
+              {placeholder}
+            </span>
+          )}
+        </div>
+        <ChevronDown
+          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ml-2 flex-shrink-0 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {isOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-30"
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-40 w-full max-h-96 overflow-hidden flex flex-col">
+            {/* Search Header */}
+            <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setDisplayLimit(50);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  placeholder={searchPlaceholder}
+                  className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  autoFocus
+                />
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex items-center justify-between mt-3">
+                <div className="text-xs text-gray-600 dark:text-gray-400">
+                  {selected.length} selected
+                  {searchQuery && ` â€¢ ${filteredOptions.length} results`}
+                </div>
+                <button
+                  type="button"
+                  onClick={toggleAll}
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                >
+                  {filteredOptions.every((opt) => selected.includes(opt.value))
+                    ? "Deselect all"
+                    : "Select all visible"}
+                </button>
+              </div>
+            </div>
+
+            {/* Options List */}
+            <div className="flex-1 overflow-y-auto">
+              {filteredOptions.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Search className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    No users found matching &quot;{searchQuery}&quot;
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {filteredOptions.map((option, index) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => toggleOption(option.value)}
+                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 transition-colors duration-150 ${
+                        index === 0 ? "rounded-t-lg" : ""
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 border-2 rounded-md flex items-center justify-center transition-all duration-150 flex-shrink-0 ${
+                          selected.includes(option.value)
+                            ? "bg-blue-600 dark:bg-blue-500 border-blue-600 dark:border-blue-500"
+                            : "border-gray-300 dark:border-gray-600"
+                        }`}
+                      >
+                        {selected.includes(option.value) && (
+                          <Check className="w-3 h-3 text-white" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-900 dark:text-white font-medium">
+                            {option.label}
+                          </span>
+                          {option.email && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {option.email}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+
+                  {/* Load More Button */}
+                  {options.length > displayLimit && !searchQuery && (
+                    <div className="p-3 border-t border-gray-200 dark:border-gray-700">
+                      <button
+                        type="button"
+                        onClick={handleLoadMore}
+                        className="w-full py-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                      >
+                        Load more users ({options.length - displayLimit}{" "}
+                        remaining)
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </>
       )}
@@ -5834,15 +6476,17 @@ export default function EditDocumentPage() {
   const router = useRouter();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const toast = useToast();
+  const { data: categories, isLoading: categoriesLoading } = useCategories();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [document, setDocument] = useState<Document | null>(null);
   const [customers, setCustomers] = useState<User[]>([]);
-  const toast = useToast();
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    category: DocumentCategory.OTHER,
+    category: "",
     visibility: DocumentVisibility.PRIVATE,
     is_viewable_only: false,
     assigned_customers: [] as string[],
@@ -5880,9 +6524,11 @@ export default function EditDocumentPage() {
 
   const fetchCustomers = async () => {
     try {
-      const response = await api.get("/users?role=customer");
+      const response = await api.get<User[]>("/users", {
+        params: { role: UserRole.CUSTOMER, status: "approved" },
+      });
       setCustomers(response.data);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching customers:", error);
     }
   };
@@ -5900,7 +6546,7 @@ export default function EditDocumentPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
-      toast.success("Document updated");
+      toast.success("Document updated successfully");
       router.push(`/${user?.role}/documents`);
     },
   });
@@ -5915,31 +6561,88 @@ export default function EditDocumentPage() {
       const axiosErr = err as { response?: { data?: { detail?: unknown } } };
       const msg = axiosErr?.response?.data?.detail;
       setError(typeof msg === "string" ? msg : "Error updating document");
+      toast.error("Failed to update document");
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
-        <div className="text-center space-y-6 max-w-md">
-          <div className="relative w-20 h-20 mx-auto">
-            <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-800 rounded-full"></div>
-            <div className="absolute inset-0 border-4 border-blue-600 dark:border-blue-400 rounded-full border-t-transparent animate-spin"></div>
-          </div>
-          <div className="space-y-3">
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Loading Document
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-              Please wait while we retrieve your document details...
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Category options from dynamic categories
+  const categoryOptions = useMemo(() => {
+    if (!categories) return [];
+    return categories
+      .filter((cat) => cat.is_active)
+      .map((cat) => ({
+        value: cat.name,
+        label: cat.label,
+      }));
+  }, [categories]);
+
+  const visibilityOptions = Object.values(DocumentVisibility).map(
+    (visibility) => ({
+      value: visibility,
+      label: visibility.charAt(0).toUpperCase() + visibility.slice(1),
+    })
+  );
+
+  // Enhanced customer options with email for better search
+  const customerOptions = customers.map((c) => ({
+    value: c.id,
+    label: c.username,
+    email: c.email, // Add email for better search capability
+  }));
+
+  const getVisibilityIcon = (visibility: string) => {
+    switch (visibility) {
+      case "public":
+        return Globe;
+      case "private":
+        return Lock;
+      default:
+        return Building;
+    }
+  };
+
+  // Get category color from dynamic categories
+  const getCategoryColor = (categoryName: string) => {
+    const category = categories?.find((cat) => cat.name === categoryName);
+    if (!category)
+      return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
+
+    const colorMap: Record<string, string> = {
+      blue: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+      emerald:
+        "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+      red: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+      purple:
+        "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+      amber:
+        "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+      indigo:
+        "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+      gray: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+    };
+
+    return colorMap[category.color || "gray"] || colorMap.gray;
+  };
+
+  // Set default category if not set
+  useEffect(() => {
+    if (
+      categories &&
+      categories.length > 0 &&
+      formData.category &&
+      !categories.find((cat) => cat.name === formData.category)
+    ) {
+      // If the current category doesn't exist, set to default
+      const defaultCategory =
+        categories.find((cat) => cat.is_default) || categories[0];
+      setFormData((prev) => ({ ...prev, category: defaultCategory.name }));
+    }
+  }, [categories, formData.category]);
+
+  if (loading || categoriesLoading)
+    return <SimpleLoading message="Loading document..." fullScreen />;
 
   if (!document) {
     return (
@@ -5967,35 +6670,6 @@ export default function EditDocumentPage() {
     );
   }
 
-  const categoryOptions = Object.values(DocumentCategory).map((category) => ({
-    value: category,
-    label:
-      category.charAt(0).toUpperCase() + category.slice(1).replace("_", " "),
-  }));
-
-  const visibilityOptions = Object.values(DocumentVisibility).map(
-    (visibility) => ({
-      value: visibility,
-      label: visibility.charAt(0).toUpperCase() + visibility.slice(1),
-    })
-  );
-
-  const customerOptions = customers.map((c) => ({
-    value: c.id,
-    label: c.username,
-  }));
-
-  const getVisibilityIcon = (visibility: string) => {
-    switch (visibility) {
-      case "public":
-        return Globe;
-      case "private":
-        return Lock;
-      default:
-        return Building;
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Loading Overlay */}
@@ -6007,23 +6681,25 @@ export default function EditDocumentPage() {
 
       {/* Header */}
       <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4">
+        {/* Changed max-w-6xl to max-w-4xl for consistency */}
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+          {/* Adjusted gap for better responsiveness */}
+          <div className="flex items-center gap-3 sm:gap-4">
             <button
               onClick={() => router.push(`/${user?.role}/documents`)}
               className="p-2.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className="flex items-center gap-4 min-w-0">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
               <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
                 <FileText className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">
                   Edit Document
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400 truncate">
+                <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
                   {document.file_name}
                 </p>
               </div>
@@ -6037,7 +6713,7 @@ export default function EditDocumentPage() {
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Error Alert */}
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-6">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 sm:p-6">
               <div className="flex items-start gap-4">
                 <AlertCircle className="w-6 h-6 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
                 <div>
@@ -6052,17 +6728,17 @@ export default function EditDocumentPage() {
 
           {/* Basic Information */}
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-            <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800">
+            <div className="px-4 sm:px-6 py-5 border-b border-gray-200 dark:border-gray-800">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
                   <Info className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 </div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
                   Basic Information
                 </h2>
               </div>
             </div>
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-6">
               <div className="space-y-3">
                 <label
                   htmlFor="title"
@@ -6079,7 +6755,7 @@ export default function EditDocumentPage() {
                     setFormData({ ...formData, title: e.target.value })
                   }
                   className="w-full h-12 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
-                  placeholder="Enter a clear, descriptive title for your document"
+                  placeholder="Enter a clear, descriptive title"
                   required
                 />
               </div>
@@ -6099,7 +6775,7 @@ export default function EditDocumentPage() {
                   }
                   rows={4}
                   className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 resize-none shadow-sm"
-                  placeholder="Provide a detailed description of the document content and purpose..."
+                  placeholder="Provide a detailed description..."
                 />
               </div>
             </div>
@@ -6107,35 +6783,48 @@ export default function EditDocumentPage() {
 
           {/* Document Settings */}
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-            <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800">
+            <div className="px-4 sm:px-6 py-5 border-b border-gray-200 dark:border-gray-800">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
                   <Eye className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                 </div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
                   Document Settings
                 </h2>
               </div>
             </div>
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-3">
                   <label className="block text-sm font-semibold text-gray-900 dark:text-white">
                     Category
                     <span className="text-red-500 ml-1">*</span>
                   </label>
-                  <ModernSelect
-                    value={formData.category}
-                    onChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        category: value as DocumentCategory,
-                      })
-                    }
-                    options={categoryOptions}
-                    placeholder="Select document category"
-                    icon={Tag}
-                  />
+                  <div className="relative">
+                    <ModernSelect
+                      value={formData.category}
+                      onChange={(value) =>
+                        setFormData({ ...formData, category: value })
+                      }
+                      options={categoryOptions}
+                      placeholder="Select document category"
+                      icon={FolderOpen}
+                    />
+                    {formData.category && (
+                      <div className="mt-2">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg ${getCategoryColor(
+                            formData.category
+                          )}`}
+                        >
+                          <FolderOpen className="w-3 h-3" />
+                          {categoryOptions.find(
+                            (opt) => opt.value === formData.category
+                          )?.label || formData.category}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-3">
@@ -6155,6 +6844,31 @@ export default function EditDocumentPage() {
                     placeholder="Select visibility level"
                     icon={getVisibilityIcon(formData.visibility)}
                   />
+                  <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5" />
+                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                        {formData.visibility === DocumentVisibility.PUBLIC && (
+                          <span>
+                            <strong>Public:</strong> All users can view this
+                            document
+                          </span>
+                        )}
+                        {formData.visibility === DocumentVisibility.PRIVATE && (
+                          <span>
+                            <strong>Private:</strong> Only assigned users can
+                            access
+                          </span>
+                        )}
+                        {formData.visibility ===
+                          DocumentVisibility.INTERNAL && (
+                          <span>
+                            <strong>Internal:</strong> Only employees can view
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -6164,41 +6878,57 @@ export default function EditDocumentPage() {
                   setFormData({ ...formData, is_viewable_only: checked })
                 }
                 label="View-Only Mode"
-                description="When enabled, users can only preview the document online and cannot download it to their device"
+                description="When enabled, users can only preview the document online and cannot download it."
               />
             </div>
           </div>
 
-          {/* Access Control */}
+          {/* Access Control with Enhanced Search */}
           {formData.visibility === DocumentVisibility.PRIVATE && (
             <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-              <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center">
-                    <Users className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <div className="px-4 sm:px-6 py-5 border-b border-gray-200 dark:border-gray-800">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Users className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+                      Access Control
+                    </h2>
                   </div>
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    Access Control
-                  </h2>
+                  {customers.length > 0 && (
+                    <span className="text-sm text-gray-500 dark:text-gray-400 pl-11 sm:pl-0">
+                      {customers.length} total users available
+                    </span>
+                  )}
                 </div>
               </div>
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 <div className="space-y-3">
                   <label className="block text-sm font-semibold text-gray-900 dark:text-white">
                     Authorized Customers
                   </label>
-                  <ModernMultiSelect
+                  <SearchableMultiSelect
                     selected={formData.assigned_customers}
                     onChange={(selected) =>
-                      setFormData({ ...formData, assigned_customers: selected })
+                      setFormData({
+                        ...formData,
+                        assigned_customers: selected,
+                      })
                     }
                     options={customerOptions}
-                    placeholder="Select customers who can access this document..."
+                    placeholder="Click to search and select customers..."
+                    searchPlaceholder="Search by username or email..."
                   />
-                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                    Only the selected customers will have permission to view and
-                    access this private document
-                  </p>
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-4 h-4 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">
+                        Only selected customers can view this document. Use
+                        search to find users by username or email.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -6206,17 +6936,17 @@ export default function EditDocumentPage() {
 
           {/* Tags & Labels */}
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-            <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800">
+            <div className="px-4 sm:px-6 py-5 border-b border-gray-200 dark:border-gray-800">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
                   <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
                   Tags & Organization
                 </h2>
               </div>
             </div>
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <div className="space-y-3">
                 <label
                   htmlFor="tags"
@@ -6224,43 +6954,38 @@ export default function EditDocumentPage() {
                 >
                   Document Tags
                 </label>
-                <input
-                  id="tags"
-                  type="text"
-                  value={formData.tags}
-                  onChange={(e) =>
-                    setFormData({ ...formData, tags: e.target.value })
-                  }
-                  className="w-full h-12 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
-                  placeholder="important, contract, legal, 2024"
-                />
+                <div className="relative">
+                  <Tag className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  <input
+                    id="tags"
+                    type="text"
+                    value={formData.tags}
+                    onChange={(e) =>
+                      setFormData({ ...formData, tags: e.target.value })
+                    }
+                    className="w-full h-12 pl-12 pr-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200 shadow-sm"
+                    placeholder="important, contract, 2024"
+                  />
+                </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                  Separate multiple tags with commas to help organize and search
-                  for documents more effectively
+                  Separate tags with commas to help organize and find documents.
                 </p>
               </div>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <button
-              type="button"
-              onClick={() => router.push(`/${user?.role}/documents`)}
-              className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
-            >
-              <X className="w-4 h-4" />
-              Cancel Changes
-            </button>
+          {/* Adjusted gap and flex direction for responsiveness */}
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-start gap-3 pt-4">
             <button
               type="submit"
-              disabled={saving}
-              className="flex items-center justify-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm disabled:cursor-not-allowed"
+              disabled={saving || !formData.category}
+              className="flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm disabled:cursor-not-allowed"
             >
               {saving ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Saving Changes...
+                  Saving...
                 </>
               ) : (
                 <>
@@ -6268,6 +6993,14 @@ export default function EditDocumentPage() {
                   Save Document
                 </>
               )}
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push(`/${user?.role}/documents`)}
+              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
+            >
+              <X className="w-4 h-4" />
+              Cancel
             </button>
           </div>
         </form>
@@ -6795,9 +7528,11 @@ import {
   Moon,
   Monitor,
   Check,
+  FolderCog,
 } from "lucide-react";
 import api from "@/lib/api";
 import { UserRole } from "@/types";
+import CategoryManagement from "@/components/CategoryManagement";
 
 // Define notification settings type
 type NotificationKey =
@@ -6875,11 +7610,15 @@ export default function SettingsPage() {
     }
   };
 
+  // Add Categories tab only for super admin
   const tabs = [
     { id: "profile", label: "Profile", icon: User },
     { id: "security", label: "Security", icon: Lock },
     { id: "appearance", label: "Appearance", icon: Sun },
     { id: "notifications", label: "Notifications", icon: Bell },
+    ...(user?.is_super_admin
+      ? [{ id: "categories", label: "Categories", icon: FolderCog }]
+      : []),
     ...(user?.role === UserRole.ADMIN
       ? [{ id: "system", label: "System", icon: Settings }]
       : []),
@@ -7028,6 +7767,7 @@ export default function SettingsPage() {
                           <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                           <span className="font-medium text-gray-900 dark:text-white">
                             {user?.role}
+                            {user?.is_super_admin && " (Super Admin)"}
                           </span>
                         </div>
                         <div className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium rounded-full">
@@ -7326,6 +8066,25 @@ export default function SettingsPage() {
               </div>
             )}
 
+            {/* Categories Tab - Only for Super Admin */}
+            {activeTab === "categories" && user?.is_super_admin && (
+              <div className="space-y-6">
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800">
+                  <div className="p-6 border-b border-gray-200 dark:border-gray-800">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                      Category Management
+                    </h2>
+                    <p className="text-gray-600 dark:text-gray-400 mt-1">
+                      Configure document categories and organization
+                    </p>
+                  </div>
+                  <div className="p-6">
+                    <CategoryManagement />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* System Tab */}
             {activeTab === "system" && user?.role === UserRole.ADMIN && (
               <div className="space-y-6">
@@ -7380,25 +8139,532 @@ export default function SettingsPage() {
 
 ```
 
+## app\components\CategoryManagement.tsx
+
+```typescript
+"use client";
+
+import { useState } from "react";
+import {
+  FolderPlus,
+  Edit2,
+  Trash2,
+  Check,
+  AlertCircle,
+  Loader2,
+  Shield,
+  FileText,
+  Package,
+  Settings,
+} from "lucide-react";
+import { Category } from "@/types";
+import {
+  useCategories,
+  useCreateCategory,
+  useUpdateCategory,
+  useDeleteCategory,
+} from "@/hooks/useCategories";
+
+// Icon options for categories
+const ICON_OPTIONS = [
+  { value: "FileText", label: "File", icon: FileText },
+  { value: "Package", label: "Package", icon: Package },
+  { value: "Shield", label: "Shield", icon: Shield },
+  { value: "Settings", label: "Settings", icon: Settings },
+];
+
+// Color options
+const COLOR_OPTIONS = [
+  { value: "blue", label: "Blue", class: "bg-blue-500" },
+  { value: "emerald", label: "Green", class: "bg-emerald-500" },
+  { value: "red", label: "Red", class: "bg-red-500" },
+  { value: "purple", label: "Purple", class: "bg-purple-500" },
+  { value: "amber", label: "Amber", class: "bg-amber-500" },
+  { value: "indigo", label: "Indigo", class: "bg-indigo-500" },
+  { value: "gray", label: "Gray", class: "bg-gray-500" },
+];
+
+export default function CategoryManagement() {
+  const { data: categories, isLoading } = useCategories(true);
+  const createMutation = useCreateCategory();
+  const updateMutation = useUpdateCategory();
+  const deleteMutation = useDeleteCategory();
+
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<Category | null>(null);
+
+  const [formData, setFormData] = useState({
+    name: "",
+    label: "",
+    description: "",
+    color: "blue",
+    icon: "FileText",
+  });
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      label: "",
+      description: "",
+      color: "blue",
+      icon: "FileText",
+    });
+    setEditingCategory(null);
+    setShowCreateModal(false);
+  };
+
+  const handleCreate = async () => {
+    if (!formData.name || !formData.label) return;
+
+    try {
+      await createMutation.mutateAsync({
+        name: formData.name.toLowerCase().replace(/\s+/g, "_"),
+        label: formData.label,
+        description: formData.description,
+        color: formData.color,
+        icon: formData.icon,
+      });
+      resetForm();
+    } catch (error) {
+      console.error("Error creating category:", error);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!editingCategory) return;
+
+    try {
+      await updateMutation.mutateAsync({
+        id: editingCategory.id,
+        data: {
+          label: formData.label,
+          description: formData.description,
+          color: formData.color,
+          icon: formData.icon,
+        },
+      });
+      resetForm();
+    } catch (error) {
+      console.error("Error updating category:", error);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+
+    try {
+      await deleteMutation.mutateAsync(deleteConfirm.id);
+      setDeleteConfirm(null);
+    } catch (error) {
+      console.error("Error deleting category:", error);
+    }
+  };
+
+  const startEdit = (category: Category) => {
+    setFormData({
+      name: category.name,
+      label: category.label,
+      description: category.description || "",
+      color: category.color || "blue",
+      icon: category.icon || "FileText",
+    });
+    setEditingCategory(category);
+  };
+
+  const toggleActive = async (category: Category) => {
+    try {
+      await updateMutation.mutateAsync({
+        id: category.id,
+        data: { is_active: !category.is_active },
+      });
+    } catch (error) {
+      console.error("Error toggling category:", error);
+    }
+  };
+
+  const getCategoryColor = (color: string) => {
+    const colorMap: Record<string, string> = {
+      blue: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800",
+      emerald:
+        "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
+      red: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800",
+      purple:
+        "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800",
+      amber:
+        "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800",
+      indigo:
+        "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800",
+      gray: "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700",
+    };
+    return colorMap[color] || colorMap.gray;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Document Categories
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            Manage categories for organizing documents
+          </p>
+        </div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition-all duration-200"
+        >
+          <FolderPlus className="w-4 h-4" />
+          Add Category
+        </button>
+      </div>
+
+      {/* Categories List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {categories?.map((category) => (
+          <div
+            key={category.id}
+            className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4"
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${getCategoryColor(
+                    category.color || "gray"
+                  )}`}
+                >
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 dark:text-white">
+                    {category.label}
+                  </h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {category.name}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {category.is_default && (
+                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-medium rounded-full">
+                    Default
+                  </span>
+                )}
+                {!category.is_active && (
+                  <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs font-medium rounded-full">
+                    Inactive
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {category.description && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                {category.description}
+              </p>
+            )}
+
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => toggleActive(category)}
+                disabled={category.is_default}
+                className={`text-sm font-medium ${
+                  category.is_active
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-gray-600 dark:text-gray-400"
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {category.is_active ? "Active" : "Inactive"}
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => startEdit(category)}
+                  className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                {!category.is_default && (
+                  <button
+                    onClick={() => setDeleteConfirm(category)}
+                    className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Create/Edit Modal */}
+      {(showCreateModal || editingCategory) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={resetForm}
+          />
+          <div className="relative bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-200 dark:border-gray-800">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+              {editingCategory ? "Edit Category" : "Create Category"}
+            </h3>
+
+            <div className="space-y-4">
+              {!editingCategory && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                    Category ID
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    placeholder="e.g., legal_documents"
+                    className="w-full h-11 px-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Unique identifier (lowercase, use underscores)
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                  Display Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.label}
+                  onChange={(e) =>
+                    setFormData({ ...formData, label: e.target.value })
+                  }
+                  placeholder="e.g., Legal Documents"
+                  className="w-full h-11 px-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  placeholder="Brief description of this category..."
+                  rows={3}
+                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                    Color
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {COLOR_OPTIONS.map((color) => (
+                      <button
+                        key={color.value}
+                        type="button"
+                        onClick={() =>
+                          setFormData({ ...formData, color: color.value })
+                        }
+                        className={`w-full h-8 rounded-lg ${
+                          color.class
+                        } flex items-center justify-center transition-all ${
+                          formData.color === color.value
+                            ? "ring-2 ring-offset-2 ring-blue-500"
+                            : ""
+                        }`}
+                        title={color.label}
+                      >
+                        {formData.color === color.value && (
+                          <Check className="w-4 h-4 text-white" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                    Icon
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {ICON_OPTIONS.map((icon) => {
+                      const IconComponent = icon.icon;
+                      return (
+                        <button
+                          key={icon.value}
+                          type="button"
+                          onClick={() =>
+                            setFormData({ ...formData, icon: icon.value })
+                          }
+                          className={`h-8 rounded-lg border ${
+                            formData.icon === icon.value
+                              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
+                              : "border-gray-300 dark:border-gray-600"
+                          } flex items-center justify-center transition-all`}
+                        >
+                          <IconComponent className="w-4 h-4" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6 justify-end">
+              <button
+                onClick={resetForm}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={editingCategory ? handleUpdate : handleCreate}
+                disabled={
+                  !formData.label ||
+                  (!editingCategory && !formData.name) ||
+                  createMutation.isPending ||
+                  updateMutation.isPending
+                }
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-xl transition-colors disabled:cursor-not-allowed"
+              >
+                {createMutation.isPending || updateMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : editingCategory ? (
+                  "Update"
+                ) : (
+                  "Create"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setDeleteConfirm(null)}
+          />
+          <div className="relative bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-200 dark:border-gray-800">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Delete Category
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                  Are you sure you want to delete &quot;{deleteConfirm.label}
+                  &quot;? This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium rounded-xl transition-colors disabled:cursor-not-allowed"
+              >
+                {deleteMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Delete"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+```
+
 ## app\components\DocumentPreviewModal.tsx
 
 ```typescript
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import {
   X,
-  Download,
   Maximize2,
   Minimize2,
   FileText,
   AlertCircle,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
 } from "lucide-react";
 import api from "@/lib/api";
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
 import { useToast } from "@/contexts/ToastContext";
+
+// Dynamic import of react-pdf components with no SSR
+const Document = dynamic(
+  () => import("react-pdf").then((mod) => mod.Document),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin" />
+      </div>
+    ),
+  }
+);
+
+const Page = dynamic(
+  () => import("react-pdf").then((mod) => mod.Page),
+  {
+    ssr: false,
+  }
+);
+
+// Import pdfjs and configure worker
+import("react-pdf").then((pdf) => {
+  const { pdfjs } = pdf;
+  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+});
+
+// Import styles
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
 
 interface DocumentPreviewModalProps {
   isOpen: boolean;
@@ -7417,7 +8683,6 @@ export default function DocumentPreviewModal({
   documentTitle,
   fileName,
   mimeType,
-  canDownload = false,
 }: DocumentPreviewModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -7430,19 +8695,21 @@ export default function DocumentPreviewModal({
     sheetNames: string[];
     currentSheet: string;
   } | null>(null);
-  const [officeViewerUrl, setOfficeViewerUrl] = useState<string | null>(null);
-  // Default to false in development unless explicitly enabled by env var
-  const [useOfficeViewer, setUseOfficeViewer] = useState(
-    process.env.NEXT_PUBLIC_ENABLE_OFFICE_VIEWER === "true"
-  );
-  const [officeViewerLoaded, setOfficeViewerLoaded] = useState(false);
+
+  // PDF specific states
+  const [numPages, setNumPages] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [scale, setScale] = useState<number>(1.0);
+  const [rotation, setRotation] = useState<number>(0);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [pageWidth, setPageWidth] = useState<number>(0);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   // Get file extension and type
   const fileExtension = fileName.split(".").pop()?.toLowerCase() || "";
   const isPDF = fileExtension === "pdf" || mimeType?.includes("pdf");
   const isWord = ["doc", "docx"].includes(fileExtension);
   const isExcel = ["xls", "xlsx"].includes(fileExtension);
-  const isPowerPoint = ["ppt", "pptx"].includes(fileExtension);
 
   useEffect(() => {
     if (isOpen && documentId) {
@@ -7454,246 +8721,74 @@ export default function DocumentPreviewModal({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, documentId]); // loadPreview and previewUrl are intentionally excluded to avoid infinite loops
+  }, [isOpen, documentId]);
+
+  // Calculate optimal scale for mobile
+  useEffect(() => {
+    const calculateScale = () => {
+      if (typeof window !== "undefined") {
+        const isMobile = window.innerWidth <= 768;
+        const containerWidth = isMobile
+          ? window.innerWidth - 32 // Account for padding on mobile
+          : Math.min(window.innerWidth * 0.8, 1200); // Cap desktop width
+        
+        // Standard PDF width is 612 points
+        const optimalScale = containerWidth / 612;
+        
+        // Different scale limits for mobile vs desktop
+        if (isMobile) {
+          setScale(Math.min(optimalScale, 1.0)); // Cap at 1.0x for mobile
+        } else {
+          setScale(Math.min(optimalScale, 1.5)); // Cap at 1.5x for desktop
+        }
+      }
+    };
+
+    calculateScale();
+    window.addEventListener("resize", calculateScale);
+    return () => window.removeEventListener("resize", calculateScale);
+  }, []);
 
   const loadPreview = async () => {
     setLoading(true);
     setError(null);
+    setPdfError(null);
     setConvertedContent(null);
     setExcelData(null);
-    setOfficeViewerUrl(null);
-    setOfficeViewerLoaded(false);
+    setPdfBlob(null);
+    setCurrentPage(1);
+    setRotation(0);
 
     try {
-      let blob: Blob;
-      let publicUrl: string | null = null;
+      const response = await api.get(`/documents/${documentId}/preview`, {
+        responseType: "blob",
+      });
 
-      // Handle demo documents differently
-      if (documentId.startsWith("demo-")) {
-        blob = await createDemoDocument(documentId);
+      const serverType = response.headers["content-type"] || mimeType || "application/octet-stream";
+      const effectiveType = serverType === "application/octet-stream" && isPDF
+        ? "application/pdf"
+        : serverType;
+      
+      const blob = new Blob([response.data], { type: effectiveType });
+
+      if (isPDF) {
+        setPdfBlob(blob);
       } else {
-        // Try to get a public URL for Office Online Viewer
-        try {
-          const publicUrlResponse = await api.get(
-            `/documents/${documentId}/public-url`
-          );
-          publicUrl = publicUrlResponse.data.url;
-          console.log("Got public URL for Office Online Viewer:", publicUrl);
-        } catch (err) {
-          console.log("Public URL not available, falling back to blob:", err);
-        }
+        const url = URL.createObjectURL(blob);
+        setPreviewUrl(url);
 
-        const response = await api.get(`/documents/${documentId}/preview`, {
-          responseType: "blob",
-        });
-
-        // Prefer server-provided content-type; if not provided and file is PDF, force application/pdf
-        const serverType =
-          response.headers["content-type"] ||
-          mimeType ||
-          "application/octet-stream";
-        const effectiveType =
-          serverType === "application/octet-stream" && isPDF
-            ? "application/pdf"
-            : serverType;
-        blob = new Blob([response.data], {
-          type: effectiveType,
-        });
-      }
-
-      const url = URL.createObjectURL(blob);
-      setPreviewUrl(url);
-
-      // Try Microsoft Office Online Viewer for Office documents (only when a valid public https URL exists)
-      if ((isWord || isExcel || isPowerPoint) && useOfficeViewer) {
-        let urlToUse = publicUrl;
-
-        // Filter out localhost/private URLs not reachable by Office Viewer
-        const isPublicHttps = (url?: string | null) =>
-          !!url &&
-          /^https:\/\//i.test(url) &&
-          !/localhost|127\.0\.0\.1|0\.0\.0\.0/i.test(url);
-
-        // For demo documents, use a test URL
-        if (documentId.startsWith("demo-") && !isPublicHttps(publicUrl)) {
-          // Use a publicly available sample document for testing
-          if (isWord) {
-            urlToUse =
-              "https://file-examples.com/storage/fe68c8c7c66c4d5b2b5c9e4/2017/10/file_example_DOC_100kB.doc";
-          } else if (isExcel) {
-            urlToUse =
-              "https://file-examples.com/storage/fe68c8c7c66c4d5b2b5c9e4/2017/10/file_example_XLS_10.xls";
-          } else if (isPowerPoint) {
-            urlToUse =
-              "https://file-examples.com/storage/fe68c8c7c66c4d5b2b5c9e4/2017/10/file_example_PPT_250kB.ppt";
-          }
-        }
-
-        if (isPublicHttps(urlToUse)) {
-          const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(
-            urlToUse!
-          )}`;
-          console.log("Setting Office Online Viewer URL:", officeUrl);
-          setOfficeViewerUrl(officeUrl);
-        }
-      }
-
-      // Fallback to client-side conversion for Word and Excel when Office Viewer isn't used
-      if ((isWord || isExcel) && !officeViewerUrl) {
-        // Fallback to client-side conversion for Word and Excel
         if (isWord) {
           await convertWordDocument(blob);
         } else if (isExcel) {
           await convertExcelDocument(blob);
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error loading preview:", err);
-      setError("Unable to load document preview. Please try again.");
+      setError(err?.message || "Unable to load document preview. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const createDemoDocument = async (demoId: string): Promise<Blob> => {
-    if (demoId === "demo-word") {
-      return createDemoWordDocument();
-    } else if (demoId === "demo-excel") {
-      return createDemoExcelDocument();
-    } else if (demoId === "demo-pdf") {
-      return createDemoPDFDocument();
-    } else if (demoId === "demo-powerpoint") {
-      return createDemoPowerPointDocument();
-    }
-    throw new Error("Unknown demo document");
-  };
-
-  const createDemoWordDocument = (): Blob => {
-    // Create a simple DOCX document using a minimal structure
-    const content = `
-      <html>
-        <body>
-          <h1>Demo Word Document</h1>
-          <p>This is a demonstration of the Word document preview functionality.</p>
-          <h2>Features</h2>
-          <ul>
-            <li>Real-time document conversion</li>
-            <li>HTML rendering of Word content</li>
-            <li>Preserves basic formatting</li>
-          </ul>
-          <p><strong>Note:</strong> This is a demo document created for testing purposes.</p>
-        </body>
-      </html>
-    `;
-
-    // For demo purposes, we'll simulate a converted document
-    setConvertedContent(content);
-    return new Blob([content], { type: "text/html" });
-  };
-
-  const createDemoExcelDocument = (): Blob => {
-    // Create demo Excel data
-    const demoData = {
-      html: `
-        <table border="1" style="border-collapse: collapse; width: 100%;">
-          <tr style="background-color: #f0f0f0;">
-            <th style="padding: 8px;">Product</th>
-            <th style="padding: 8px;">Quantity</th>
-            <th style="padding: 8px;">Price</th>
-            <th style="padding: 8px;">Total</th>
-          </tr>
-          <tr>
-            <td style="padding: 8px;">Widget A</td>
-            <td style="padding: 8px; text-align: right;">10</td>
-            <td style="padding: 8px; text-align: right;">$25.00</td>
-            <td style="padding: 8px; text-align: right;">$250.00</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px;">Widget B</td>
-            <td style="padding: 8px; text-align: right;">5</td>
-            <td style="padding: 8px; text-align: right;">$45.00</td>
-            <td style="padding: 8px; text-align: right;">$225.00</td>
-          </tr>
-          <tr style="background-color: #f9f9f9;">
-            <td style="padding: 8px;"><strong>Total</strong></td>
-            <td style="padding: 8px; text-align: right;"><strong>15</strong></td>
-            <td style="padding: 8px;"></td>
-            <td style="padding: 8px; text-align: right;"><strong>$475.00</strong></td>
-          </tr>
-        </table>
-      `,
-      sheetNames: ["Sheet1", "Summary"],
-      currentSheet: "Sheet1",
-    };
-
-    setExcelData(demoData);
-    return new Blob([demoData.html], { type: "text/html" });
-  };
-
-  const createDemoPDFDocument = (): Blob => {
-    // Create a simple PDF-like content (in reality, this would be a real PDF)
-    const pdfContent = `%PDF-1.4
-1 0 obj
-<<
-/Type /Catalog
-/Pages 2 0 R
->>
-endobj
-
-2 0 obj
-<<
-/Type /Pages
-/Kids [3 0 R]
-/Count 1
->>
-endobj
-
-3 0 obj
-<<
-/Type /Page
-/Parent 2 0 R
-/MediaBox [0 0 612 792]
-/Contents 4 0 R
->>
-endobj
-
-4 0 obj
-<<
-/Length 44
->>
-stream
-BT
-/F1 12 Tf
-72 720 Td
-(Demo PDF Document) Tj
-ET
-endstream
-endobj
-
-xref
-0 5
-0000000000 65535 f
-0000000009 00000 n
-0000000058 00000 n
-0000000115 00000 n
-0000000206 00000 n
-trailer
-<<
-/Size 5
-/Root 1 0 R
->>
-startxref
-300
-%%EOF`;
-
-    return new Blob([pdfContent], { type: "application/pdf" });
-  };
-
-  const createDemoPowerPointDocument = (): Blob => {
-    // For PowerPoint, we just return a placeholder
-    return new Blob(["Demo PowerPoint Content"], {
-      type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    });
   };
 
   const convertWordDocument = async (blob: Blob) => {
@@ -7701,10 +8796,6 @@ startxref
       const arrayBuffer = await blob.arrayBuffer();
       const result = await mammoth.convertToHtml({ arrayBuffer });
       setConvertedContent(result.value);
-
-      if (result.messages.length > 0) {
-        console.warn("Word conversion warnings:", result.messages);
-      }
     } catch (err) {
       console.error("Error converting Word document:", err);
       setError("Unable to convert Word document for preview.");
@@ -7715,8 +8806,6 @@ startxref
     try {
       const arrayBuffer = await blob.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer, { type: "array" });
-
-      // Convert first sheet to HTML
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
       const htmlString = XLSX.utils.sheet_to_html(worksheet);
@@ -7732,34 +8821,190 @@ startxref
     }
   };
 
-  const handleDownload = async () => {
-    if (!canDownload) return;
-
-    try {
-      const response = await api.get(`/documents/${documentId}/download`, {
-        responseType: "blob",
-      });
-
-      const blob = new Blob([response.data], {
-        type: response.headers["content-type"] || "application/octet-stream",
-      });
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("Error downloading document:", err);
-      toast.error("Unable to download document. Please try again.");
-    }
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+    setCurrentPage(1);
+    setPdfError(null);
   };
 
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
+  const onDocumentLoadError = (error: Error) => {
+    console.error("PDF load error:", error);
+    setPdfError("Failed to load PDF. The file may be corrupted or unsupported.");
+  };
+
+  const goToPreviousPage = () => {
+    setCurrentPage((prev) => Math.max(1, prev - 1));
+  };
+
+  const goToNextPage = () => {
+    setCurrentPage((prev) => Math.min(numPages, prev + 1));
+  };
+
+  const zoomIn = () => {
+    setScale((prev) => Math.min(2.5, prev + 0.25));
+  };
+
+  const zoomOut = () => {
+    setScale((prev) => Math.max(0.5, prev - 0.25));
+  };
+
+  const rotate = () => {
+    setRotation((prev) => (prev + 90) % 360);
+  };
+
+  const renderPDFPreview = () => {
+    if (!pdfBlob) return null;
+
+    // Show PDF-specific error if exists
+    if (pdfError) {
+      return (
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center space-y-4 max-w-md">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              PDF Preview Error
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">{pdfError}</p>
+            <button
+              onClick={loadPreview}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+        {/* PDF Controls - Hide zoom controls on mobile to save space */}
+        <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goToPreviousPage}
+              disabled={currentPage <= 1}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[80px] text-center">
+              {currentPage} / {numPages || '?'}
+            </span>
+            
+            <button
+              onClick={goToNextPage}
+              disabled={currentPage >= numPages}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              aria-label="Next page"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Hide on mobile screens */}
+          <div className="hidden sm:flex items-center gap-2">
+            <button
+              onClick={zoomOut}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              aria-label="Zoom out"
+            >
+              <ZoomOut className="w-5 h-5" />
+            </button>
+            
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[60px] text-center">
+              {Math.round(scale * 100)}%
+            </span>
+            
+            <button
+              onClick={zoomIn}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              aria-label="Zoom in"
+            >
+              <ZoomIn className="w-5 h-5" />
+            </button>
+            
+            <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+            
+            <button
+              onClick={rotate}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              aria-label="Rotate"
+            >
+              <RotateCw className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* PDF Document */}
+        <div className="flex-1 overflow-auto p-2 sm:p-4">
+          <div className="flex justify-center">
+            <Document
+              file={pdfBlob}
+              onLoadSuccess={onDocumentLoadSuccess}
+              onLoadError={onDocumentLoadError}
+              loading={
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin" />
+                </div>
+              }
+              error={
+                <div className="flex flex-col items-center justify-center p-8">
+                  <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+                  <p className="text-gray-600 dark:text-gray-400">Failed to load PDF</p>
+                  <button
+                    onClick={loadPreview}
+                    className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  >
+                    Retry
+                  </button>
+                </div>
+              }
+              className="flex justify-center"
+            >
+              <Page
+                pageNumber={currentPage}
+                scale={scale}
+                rotate={rotation}
+                className="shadow-lg max-w-full"
+                renderTextLayer={true}
+                renderAnnotationLayer={true}
+                onLoadSuccess={({ width }) => setPageWidth(width)}
+              />
+            </Document>
+          </div>
+        </div>
+
+        {/* Mobile-friendly page navigation */}
+        {numPages > 1 && (
+          <div className="sm:hidden p-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={goToPreviousPage}
+                disabled={currentPage <= 1}
+                className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg disabled:bg-gray-300 disabled:text-gray-500 transition-colors"
+              >
+                Previous
+              </button>
+              
+              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                Page {currentPage} of {numPages}
+              </span>
+              
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage >= numPages}
+                className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg disabled:bg-gray-300 disabled:text-gray-500 transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const renderPreviewContent = () => {
@@ -7768,9 +9013,7 @@ startxref
         <div className="flex items-center justify-center h-96">
           <div className="text-center space-y-4">
             <Loader2 className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin mx-auto" />
-            <p className="text-gray-600 dark:text-gray-400">
-              Loading preview...
-            </p>
+            <p className="text-gray-600 dark:text-gray-400">Loading preview...</p>
           </div>
         </div>
       );
@@ -7779,7 +9022,7 @@ startxref
     if (error) {
       return (
         <div className="flex items-center justify-center h-96">
-          <div className="text-center space-y-4 max-w-md">
+          <div className="text-center space-y-4 max-w-md px-4">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Preview Error
@@ -7796,295 +9039,66 @@ startxref
       );
     }
 
-    if (!previewUrl) {
-      return (
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center space-y-4">
-            <FileText className="w-12 h-12 text-gray-400 mx-auto" />
-            <p className="text-gray-600 dark:text-gray-400">
-              No preview available
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    // For PDFs, use iframe
+    // For PDFs, use react-pdf
     if (isPDF) {
-      return (
-        <iframe
-          src={previewUrl}
-          className="w-full h-full border-0"
-          title={`Preview of ${documentTitle}`}
-        />
-      );
+      return renderPDFPreview();
     }
 
-    // For Office documents, try Microsoft Office Online Viewer first
-    if ((isWord || isExcel || isPowerPoint) && officeViewerUrl) {
+    // For Word documents
+    if (isWord && convertedContent) {
       return (
-        <div className="w-full h-full flex flex-col">
+        <div className="w-full h-full flex flex-col p-4">
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                  Microsoft Office Online Viewer - 100% Accurate Preview
-                </span>
-              </div>
-              {process.env.NEXT_PUBLIC_ENABLE_OFFICE_VIEWER === "true" && (
-                <button
-                  onClick={() => {
-                    setUseOfficeViewer(false);
-                    setOfficeViewerUrl(null);
-                    loadPreview();
-                  }}
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                >
-                  Use Basic Viewer
-                </button>
-              )}
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                Word Document Preview
+              </span>
             </div>
           </div>
-
-          <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 relative">
-            {!officeViewerLoaded && (
-              <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-800 z-10">
-                <div className="text-center space-y-4">
-                  <Loader2 className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin mx-auto" />
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Loading Microsoft Office Viewer...
-                  </p>
-                </div>
-              </div>
-            )}
-            <iframe
-              src={officeViewerUrl}
-              className="w-full h-full border-0"
-              title={`Microsoft Office Preview of ${documentTitle}`}
-              onLoad={() => {
-                console.log("Office Online Viewer loaded successfully");
-                setOfficeViewerLoaded(true);
-              }}
-              onError={(e) => {
-                console.error(
-                  "Office Online Viewer failed, falling back to basic viewer",
-                  e
-                );
-                setUseOfficeViewer(false);
-                setOfficeViewerUrl(null);
-                setOfficeViewerLoaded(false);
-                loadPreview();
-              }}
-              sandbox="allow-scripts allow-same-origin allow-forms"
+          <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg overflow-auto border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+            <div
+              className="prose prose-sm max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: convertedContent }}
             />
           </div>
-
-          {canDownload && (
-            <div className="mt-3 flex justify-center">
-              <button
-                onClick={handleDownload}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
-              >
-                <Download className="w-4 h-4" />
-                Download Original
-              </button>
-            </div>
-          )}
         </div>
       );
     }
 
-    // For Word documents, show converted HTML content (fallback)
-    if (isWord) {
+    // For Excel documents
+    if (isExcel && excelData) {
       return (
-        <div className="w-full h-full flex flex-col">
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                  Word Document Preview (Basic)
-                </span>
-              </div>
-              <span className="text-xs text-blue-600 dark:text-blue-400">
-                Limited formatting
-              </span>
-            </div>
-          </div>
-
-          <div className="flex-1 bg-white rounded-lg overflow-auto border border-gray-200 dark:border-gray-700">
-            {convertedContent ? (
-              <div
-                className="p-6 prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: convertedContent }}
-                style={{
-                  backgroundColor: "#ffffff",
-                  color: "#000000",
-                  fontFamily: "system-ui, -apple-system, sans-serif",
-                  lineHeight: "1.6",
-                }}
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center space-y-4">
-                  <Loader2 className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin mx-auto" />
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Converting document...
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {canDownload && (
-            <div className="mt-3 flex justify-center">
-              <button
-                onClick={handleDownload}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
-              >
-                <Download className="w-4 h-4" />
-                Download Original
-              </button>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // For Excel documents, show converted spreadsheet (fallback)
-    if (isExcel) {
-      return (
-        <div className="w-full h-full flex flex-col">
+        <div className="w-full h-full flex flex-col p-4">
           <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-green-600 dark:text-green-400" />
-                <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                  Excel Spreadsheet Preview (Basic)
-                </span>
-                {excelData?.sheetNames && excelData.sheetNames.length > 1 && (
-                  <span className="text-xs text-green-600 dark:text-green-400 ml-2">
-                    ({excelData.sheetNames.length} sheets)
-                  </span>
-                )}
-              </div>
-              <span className="text-xs text-green-600 dark:text-green-400">
-                Limited formatting
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-green-600 dark:text-green-400" />
+              <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                Excel Spreadsheet Preview
               </span>
             </div>
           </div>
-
-          <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg overflow-auto border border-gray-200 dark:border-gray-700">
-            {excelData?.html ? (
-              <div
-                className="p-4"
-                dangerouslySetInnerHTML={{ __html: excelData.html }}
-                style={{
-                  fontFamily: "system-ui, -apple-system, sans-serif",
-                  fontSize: "14px",
-                }}
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center space-y-4">
-                  <Loader2 className="w-8 h-8 text-green-600 dark:text-green-400 animate-spin mx-auto" />
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Converting spreadsheet...
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {canDownload && (
-            <div className="mt-3 flex justify-center">
-              <button
-                onClick={handleDownload}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
-              >
-                <Download className="w-4 h-4" />
-                Download Original
-              </button>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // For PowerPoint documents, show a message (fallback when Office Online Viewer not available)
-    if (isPowerPoint) {
-      return (
-        <div className="w-full h-full flex flex-col">
-          <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-sm font-semibold text-orange-800 dark:text-orange-200">
-                  PowerPoint Preview Not Available
-                </h4>
-                <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
-                  PowerPoint preview requires a public URL. Please download to
-                  view or contact your administrator to enable public document
-                  URLs.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 bg-gradient-to-br from-orange-50 to-red-100 dark:from-gray-800 dark:to-gray-900 rounded-lg flex items-center justify-center">
-            <div className="text-center space-y-6 p-8 max-w-md">
-              <div className="w-20 h-20 bg-orange-600 dark:bg-orange-500 rounded-2xl flex items-center justify-center mx-auto">
-                <FileText className="w-10 h-10 text-white" />
-              </div>
-
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                  {documentTitle}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-1">
-                  PowerPoint Presentation
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-500 mb-6">
-                  {fileName}
-                </p>
-              </div>
-
-              {canDownload && (
-                <button
-                  onClick={handleDownload}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl transition-colors font-medium"
-                >
-                  <Download className="w-5 h-5" />
-                  Download & Open
-                </button>
-              )}
-            </div>
+          <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg overflow-auto border border-gray-200 dark:border-gray-700 p-4">
+            <div
+              dangerouslySetInnerHTML={{ __html: excelData.html }}
+              style={{ fontFamily: "system-ui, -apple-system, sans-serif", fontSize: "14px" }}
+            />
           </div>
         </div>
       );
     }
 
-    // Fallback for other file types
+    // Fallback for unsupported file types
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center space-y-4">
           <FileText className="w-12 h-12 text-gray-400 mx-auto" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Preview Not Available
-          </h3>
           <p className="text-gray-600 dark:text-gray-400">
-            This file type cannot be previewed in the browser.
+            Preview not available for this file type
           </p>
-          {canDownload && (
-            <button
-              onClick={handleDownload}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              Download File
-            </button>
-          )}
+          <p className="text-sm text-gray-500 dark:text-gray-500">
+            File: {fileName}
+          </p>
         </div>
       </div>
     );
@@ -8093,7 +9107,7 @@ startxref
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -8102,40 +9116,30 @@ startxref
 
       {/* Modal */}
       <div
-        className={`relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 flex flex-col transition-all duration-300 ${
+        className={`relative bg-white dark:bg-gray-900 shadow-2xl border border-gray-200 dark:border-gray-800 flex flex-col transition-all duration-300 ${
           isFullscreen
-            ? "w-full h-full max-w-none max-h-none"
-            : "w-full max-w-6xl h-[90vh] max-h-[800px]"
+            ? "w-full h-full max-w-none max-h-none rounded-none"
+            : "w-full h-full sm:h-[90vh] sm:max-w-6xl sm:max-h-[800px] sm:rounded-2xl"
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+            <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" />
             <div className="min-w-0">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white truncate">
                 {documentTitle}
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
                 {fileName}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {canDownload && (
-              <button
-                onClick={handleDownload}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                title="Download Document"
-              >
-                <Download className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              </button>
-            )}
-
             <button
-              onClick={toggleFullscreen}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="hidden sm:block p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
             >
               {isFullscreen ? (
@@ -8259,7 +9263,7 @@ export default function LoadingButton({
 "use client";
 
 import React from "react";
-import Spinner from "./Spinner";
+import SimpleLoading from "./SimpleLoading";
 
 type LoadingOverlayProps = {
   message?: string;
@@ -8269,37 +9273,29 @@ type LoadingOverlayProps = {
   className?: string;
 };
 
-export default function LoadingOverlay({ 
-  message = "Processing...", 
+export default function LoadingOverlay({
+  message = "Processing...",
   title = "Processing",
   isVisible = true,
   variant = "default",
-  className = ""
+  className = "",
 }: LoadingOverlayProps) {
   if (!isVisible) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className={`bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-2xl border border-gray-200 dark:border-gray-800 max-w-sm w-full ${className}`}>
-        <div className="text-center space-y-4">
-          {/* Spinner */}
-          <div className="flex justify-center">
-            <Spinner 
-              size={variant === "compact" ? 32 : 48} 
-              variant="default" 
-              color="primary" 
-            />
-          </div>
-          
-          {/* Content */}
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {title}
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              {message}
-            </p>
-          </div>
+      <div
+        className={`bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-2xl border border-gray-200 dark:border-gray-800 max-w-sm w-full ${className}`}
+      >
+        <div className="text-center space-y-3">
+          <SimpleLoading
+            message={message}
+            fullScreen={false}
+            size={variant === "compact" ? "sm" : "md"}
+          />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {title}
+          </h3>
         </div>
       </div>
     </div>
@@ -8314,7 +9310,7 @@ export default function LoadingOverlay({
 "use client";
 
 import React from "react";
-import Spinner from "./Spinner";
+import SimpleLoading from "./SimpleLoading";
 
 type LoadingPageVariant = "root" | "auth" | "dashboard";
 
@@ -8330,123 +9326,68 @@ type LoadingPageProps = {
 };
 
 export default function LoadingPage({
-  variant = "root",
   title,
   subtitle,
-  showLogo = true,
-  showProgressDots = true,
-  showProgressItems = false,
-  progressItems = ["Data", "Charts", "Insights"],
-  className = ""
+  className = "",
 }: LoadingPageProps) {
-  // Default content based on variant
-  const getDefaultContent = () => {
-    switch (variant) {
-      case "auth":
-        return {
-          title: "Loading...",
-          subtitle: "Please wait while we set up your workspace",
-          spinnerSize: 64
-        };
-      case "dashboard":
-        return {
-          title: "Loading Dashboard",
-          subtitle: "Setting up your analytics workspace",
-          spinnerSize: 96
-        };
-      default: // root
-        return {
-          title: "Loading METSA Portal",
-          subtitle: "Please wait while we prepare your workspace",
-          spinnerSize: 80
-        };
-    }
-  };
+  const message = subtitle || title || "Loading...";
+  return <SimpleLoading message={message} fullScreen className={className} />;
+}
 
-  const defaultContent = getDefaultContent();
-  const finalTitle = title || defaultContent.title;
-  const finalSubtitle = subtitle || defaultContent.subtitle;
+```
+
+## app\components\SimpleLoading.tsx
+
+```typescript
+"use client";
+
+import React from "react";
+
+type SimpleLoadingProps = {
+  message?: string;
+  fullScreen?: boolean;
+  size?: "sm" | "md" | "lg";
+  className?: string;
+};
+
+export default function SimpleLoading({
+  message = "Loading...",
+  fullScreen = true,
+  size = "md",
+  className = "",
+}: SimpleLoadingProps) {
+  const sizePx = size === "sm" ? 28 : size === "lg" ? 56 : 40;
+
+  const Spinner = (
+    <div
+      className="relative"
+      style={{ width: sizePx, height: sizePx }}
+      role="status"
+      aria-label="Loading"
+    >
+      <div className="absolute inset-0 rounded-full border-4 border-gray-200 dark:border-gray-800" />
+      <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-600 dark:border-t-blue-400 animate-spin" />
+    </div>
+  );
+
+  const Content = (
+    <div
+      className={`flex flex-col items-center text-center gap-3 ${className}`}
+    >
+      {Spinner}
+      {message && (
+        <p className="text-sm text-gray-600 dark:text-gray-400">{message}</p>
+      )}
+    </div>
+  );
+
+  if (!fullScreen) return Content;
 
   return (
-    <div className={`min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4 ${className}`}>
-      <div className={`text-center ${variant === "dashboard" ? "max-w-md w-full" : ""}`}>
-        {/* Logo */}
-        {showLogo && (
-          <div className="mb-8">
-            <div className={`inline-block bg-gradient-to-r from-emerald-600 to-blue-600 text-white rounded-2xl font-bold shadow-xl ${
-              variant === "auth" ? "px-6 py-2 text-xl" : "px-8 py-3 text-2xl"
-            }`}>
-              METSA
-            </div>
-          </div>
-        )}
-
-        {/* Spinner */}
-        <div className="mb-6 flex justify-center">
-          <Spinner 
-            size={defaultContent.spinnerSize} 
-            variant="brand" 
-            color="primary" 
-          />
-        </div>
-
-        {/* Loading Text */}
-        <h2 className={`font-bold text-gray-900 dark:text-white mb-2 ${
-          variant === "dashboard" ? "text-2xl" : "text-xl"
-        }`}>
-          {finalTitle}
-        </h2>
-        <p className={`text-gray-600 dark:text-gray-400 ${
-          variant === "dashboard" ? "mb-6" : variant === "auth" ? "text-sm" : "mb-4"
-        }`}>
-          {finalSubtitle}
-        </p>
-
-        {/* Progress Items (Dashboard only) */}
-        {showProgressItems && variant === "dashboard" && (
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            {progressItems.map((item, index) => (
-              <div key={item} className="flex items-center space-x-2">
-                <div 
-                  className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce"
-                  style={{ animationDelay: `${index * 0.2}s` }}
-                ></div>
-                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                  {item}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Progress Dots */}
-        {showProgressDots && (
-          <div className={`flex items-center justify-center space-x-2 ${
-            variant === "auth" ? "mt-4" : ""
-          }`}>
-            {Array.from({ length: variant === "root" ? 4 : 3 }).map((_, i) => (
-              <div
-                key={i}
-                className="w-2 h-2 bg-emerald-600 rounded-full animate-bounce"
-                style={{ animationDelay: `${i * 0.15}s` }}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Mini Dashboard Preview (Dashboard only) */}
-        {variant === "dashboard" && (
-          <div className="grid grid-cols-3 gap-2 max-w-48 mx-auto mt-4">
-            {[0, 1, 2].map((i) => (
-              <div 
-                key={i}
-                className="h-8 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse border border-gray-200 dark:border-gray-700"
-                style={{ animationDelay: `${i * 0.3}s` }}
-              ></div>
-            ))}
-          </div>
-        )}
-      </div>
+    <div
+      className={`min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4 ${className}`}
+    >
+      {Content}
     </div>
   );
 }
@@ -8605,10 +9546,11 @@ export default function Spinner({
 
 ```typescript
 // Loading Components
-export { default as Spinner } from './Spinner';
-export { default as LoadingOverlay } from './LoadingOverlay';
-export { default as LoadingButton } from './LoadingButton';
-export { default as LoadingPage } from './LoadingPage';
+export { default as Spinner } from "./Spinner";
+export { default as LoadingOverlay } from "./LoadingOverlay";
+export { default as LoadingButton } from "./LoadingButton";
+export { default as LoadingPage } from "./LoadingPage";
+export { default as SimpleLoading } from "./SimpleLoading";
 
 ```
 
@@ -8759,13 +9701,13 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark"); // Default to dark
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("dark");
+  const [theme, setThemeState] = useState<Theme>("light"); // Changed to light
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light"); // Changed to light
   const [mounted, setMounted] = useState(false);
 
   // Get system theme
   const getSystemTheme = (): "light" | "dark" => {
-    if (typeof window === "undefined") return "dark";
+    if (typeof window === "undefined") return "light"; // Changed fallback to light
     return window.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
       : "light";
@@ -8808,8 +9750,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setResolvedTheme(resolved);
     };
 
-    // Get saved theme or default to dark
-    const savedTheme = (localStorage.getItem("theme") as Theme) || "dark";
+    // Get saved theme or default to light
+    const savedTheme = (localStorage.getItem("theme") as Theme) || "light"; // Changed default to light
     setThemeState(savedTheme);
     applyTheme(savedTheme);
     setMounted(true);
@@ -8988,6 +9930,117 @@ export function useToast() {
 
 ```
 
+## app\hooks\useCategories.tsx
+
+```typescript
+// ./app/hooks/useCategories.tsx
+"use client";
+
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import api from "@/lib/api";
+import { Category } from "@/types";
+import { useToast } from "@/contexts/ToastContext";
+import { AxiosError } from "axios";
+
+// Define error response type
+interface ErrorResponse {
+  detail?: string;
+}
+
+export function useCategories(includeInactive = false) {
+  return useQuery<Category[]>({
+    queryKey: ["categories", includeInactive],
+    queryFn: async () => {
+      const params = includeInactive ? "?include_inactive=true" : "";
+      const response = await api.get(`/categories${params}`);
+      return response.data;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+export function useCreateCategory() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: async (data: {
+      name: string;
+      label: string;
+      description?: string;
+      color?: string;
+      icon?: string;
+    }) => {
+      const response = await api.post("/categories", data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      toast.success("Category created successfully");
+    },
+    onError: (error: AxiosError<ErrorResponse>) => {
+      const errorMessage =
+        error.response?.data?.detail || "Failed to create category";
+      toast.error(errorMessage);
+    },
+  });
+}
+
+export function useUpdateCategory() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: {
+        label?: string;
+        description?: string;
+        color?: string;
+        icon?: string;
+        is_active?: boolean;
+      };
+    }) => {
+      const response = await api.put(`/categories/${id}`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      toast.success("Category updated successfully");
+    },
+    onError: (error: AxiosError<ErrorResponse>) => {
+      const errorMessage =
+        error.response?.data?.detail || "Failed to update category";
+      toast.error(errorMessage);
+    },
+  });
+}
+
+export function useDeleteCategory() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/categories/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      toast.success("Category deleted successfully");
+    },
+    onError: (error: AxiosError<ErrorResponse>) => {
+      const errorMessage =
+        error.response?.data?.detail || "Failed to delete category";
+      toast.error(errorMessage);
+    },
+  });
+}
+
+```
+
 ## app\hooks\useDebouncedValue.ts
 
 ```typescript
@@ -9043,18 +10096,17 @@ export function useNotifications() {
 ## app\lib\api.ts
 
 ```typescript
-import axios from 'axios';
-import Cookies from 'js-cookie';
+import axios from "axios";
+import Cookies from "js-cookie";
 
 // In development, use the full URL. In production (static export), use relative paths
-const API_BASE_URL = process.env.NODE_ENV === 'development' 
-  ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1')
-  : '/api/v1';  // Use relative path in production when served by FastAPI
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
   // Add withCredentials for CORS
   withCredentials: true,
@@ -9062,7 +10114,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = Cookies.get('access_token');
+    const token = Cookies.get("access_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -9077,9 +10129,9 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      Cookies.remove('access_token');
+      Cookies.remove("access_token");
       // Use relative path for redirect
-      window.location.href = '/login';
+      window.location.href = "/login";
     }
     return Promise.reject(error);
   }
@@ -9110,15 +10162,8 @@ export enum UserRole {
   CUSTOMER = "customer",
 }
 
-export enum DocumentCategory {
-  COMMERCIAL = "commercial",
-  QUALITY = "quality",
-  SAFETY = "safety",
-  COMPLIANCE = "compliance",
-  CONTRACTS = "contracts",
-  SPECIFICATIONS = "specifications",
-  OTHER = "other",
-}
+// Remove the enum and use string type instead
+export type DocumentCategory = string;
 
 export enum DocumentVisibility {
   PUBLIC = "public",
@@ -9136,7 +10181,21 @@ export interface CustomerInfo {
   company?: string;
   phone?: string;
   address?: string;
-  [key: string]: any;
+  [key: string]: string | undefined;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  label: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  is_active: boolean;
+  is_default: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface User {
@@ -9148,6 +10207,7 @@ export interface User {
   customer_info?: CustomerInfo;
   is_active: boolean;
   is_verified: boolean;
+  is_super_admin?: boolean;
   approval_status?: ApprovalStatus;
   approved_by?: string | null;
   approved_at?: string | null;
@@ -9161,7 +10221,7 @@ export interface Document {
   id: string;
   title: string;
   description?: string;
-  category: DocumentCategory;
+  category: string; // Changed from DocumentCategory enum to string
   visibility: DocumentVisibility;
   is_viewable_only: boolean;
   assigned_customers: string[];

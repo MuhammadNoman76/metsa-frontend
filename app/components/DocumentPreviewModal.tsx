@@ -72,7 +72,7 @@ export default function DocumentPreviewModal({
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const toast = useToast();
+  // const toast = useToast();
   const [convertedContent, setConvertedContent] = useState<string | null>(null);
   const [excelData, setExcelData] = useState<{
     html: string;
@@ -86,7 +86,7 @@ export default function DocumentPreviewModal({
   const [scale, setScale] = useState<number>(1.0);
   const [rotation, setRotation] = useState<number>(0);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
-  const [pageWidth, setPageWidth] = useState<number>(0);
+  // const [pageWidth, setPageWidth] = useState<number>(0);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
   // Get file extension and type
@@ -167,9 +167,9 @@ export default function DocumentPreviewModal({
           await convertExcelDocument(blob);
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error loading preview:", err);
-      setError(err?.message || "Unable to load document preview. Please try again.");
+      setError((err instanceof Error && err.message) ? err.message : "Unable to load document preview. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -355,7 +355,6 @@ export default function DocumentPreviewModal({
                 className="shadow-lg max-w-full"
                 renderTextLayer={true}
                 renderAnnotationLayer={true}
-                onLoadSuccess={({ width }) => setPageWidth(width)}
               />
             </Document>
           </div>

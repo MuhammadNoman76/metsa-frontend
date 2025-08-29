@@ -13,7 +13,6 @@ import {
   ArrowRight,
   Sun,
   Moon,
-  Info,
   XCircle,
   Clock,
   UserPlus,
