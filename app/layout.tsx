@@ -11,6 +11,14 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Metsa Document Portal",
   description: "Your trusted partner for industrial solutions",
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/metsa_logo.png", type: "image/png" },
+    ],
+    shortcut: [{ url: "/favicon.ico" }],
+    apple: [{ url: "/metsa_logo.png" }],
+  },
 };
 
 // Theme initialization script - default to dark
@@ -42,6 +50,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className="dark">
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" type="image/png" href="/metsa_logo.png" />
+        <link rel="apple-touch-icon" href="/metsa_logo.png" />
       </head>
       <body
         className={`${inter.className} bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100`}
