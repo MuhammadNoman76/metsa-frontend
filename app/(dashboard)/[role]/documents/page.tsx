@@ -24,6 +24,7 @@ import {
   Check,
   AlertCircle,
   Filter,
+  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 import api from "@/lib/api";
@@ -310,6 +311,7 @@ export default function DocumentsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
 
   // View mode (persisted)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -404,6 +406,7 @@ export default function DocumentsPage() {
 
   const handleDownload = async (doc: Document) => {
     try {
+      setDownloadingIds((prev) => new Set(prev).add(doc.id));
       const response = await api.get(`/documents/${doc.id}/download`, {
         responseType: "blob",
       });
@@ -420,6 +423,12 @@ export default function DocumentsPage() {
     } catch (err) {
       console.error("Error downloading document:", err);
       toast.error("Failed to download document. Please try again.");
+    } finally {
+      setDownloadingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(doc.id);
+        return next;
+      });
     }
   };
 
@@ -578,10 +587,16 @@ export default function DocumentsPage() {
         ) : (
           <button
             onClick={() => handleDownload(doc)}
-            className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-all"
+            disabled={downloadingIds.has(doc.id)}
+            aria-busy={downloadingIds.has(doc.id)}
+            className="flex-1 inline-flex items-center justify-center gap-2 h-9 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-sm font-medium rounded-lg transition-all disabled:cursor-not-allowed"
           >
-            <Download className="w-4 h-4" />
-            Download
+            {downloadingIds.has(doc.id) ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            <span>Download</span>
           </button>
         )}
       </div>
@@ -688,10 +703,16 @@ export default function DocumentsPage() {
             ) : (
               <button
                 onClick={() => handleDownload(doc)}
-                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"
+                disabled={downloadingIds.has(doc.id)}
+                aria-busy={downloadingIds.has(doc.id)}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 min-w-[116px] bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-sm font-medium rounded-lg transition-colors disabled:cursor-not-allowed"
               >
-                <Download className="w-4 h-4" />
-                Download
+                {downloadingIds.has(doc.id) ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                <span>Download</span>
               </button>
             )}
             {canEdit && (

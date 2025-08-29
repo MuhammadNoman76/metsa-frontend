@@ -99,20 +99,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      {/* Toast Container */}
-      <div className="fixed top-4 right-4 z-[1000] space-y-3 pointer-events-none">
+      {/* Toast Container: bottom-right, mobile-friendly */}
+      <div className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-[1000] flex flex-col-reverse gap-3 pointer-events-none">
         {toasts.map((t) => (
           <div
             key={t.id}
             className={
-              "pointer-events-auto min-w-[260px] max-w-[360px] rounded-xl border p-4 shadow-lg text-sm " +
+              "pointer-events-auto max-w-[90vw] sm:max-w-[360px] rounded-xl border p-4 shadow-lg text-sm text-white " +
               (t.variant === "success"
-                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200"
+                ? "bg-emerald-600 dark:bg-emerald-500 border-transparent"
                 : t.variant === "error"
-                ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200"
+                ? "bg-red-600 dark:bg-red-500 border-transparent"
                 : t.variant === "warning"
-                ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200"
-                : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200")
+                ? "bg-amber-600 dark:bg-amber-500 border-transparent"
+                : "bg-blue-600 dark:bg-blue-500 border-transparent")
             }
             role="status"
           >
