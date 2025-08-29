@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import { useNotifications } from "@/hooks/useNotifications";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import {
@@ -23,6 +24,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const queryClient = useQueryClient();
+  const { unreadCount } = useNotifications();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -188,7 +190,21 @@ export default function Sidebar() {
                     )}
                     aria-current={active ? "page" : undefined}
                   >
-                    <Icon className="h-5 w-5 mr-3 shrink-0" />
+                    {item.name === "Notifications" ? (
+                      <span className="relative inline-flex mr-3">
+                        <Icon className="h-5 w-5 shrink-0" />
+                        {unreadCount > 0 && (
+                          <span
+                            className="absolute -top-1 -right-1 inline-flex items-center justify-center rounded-full h-4 min-w-[16px] px-0.5 text-[9px] font-semibold bg-red-500 text-white shadow"
+                            aria-label={`${unreadCount} unread notifications`}
+                          >
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <Icon className="h-5 w-5 mr-3 shrink-0" />
+                    )}
                     <span>{item.name}</span>
                     {active && (
                       <span className="ml-auto inline-block h-2 w-2 rounded-full bg-white/90" />
@@ -344,15 +360,47 @@ export default function Sidebar() {
                 title={isCollapsed ? item.name : undefined}
                 aria-current={active ? "page" : undefined}
               >
-                <Icon
-                  className={cn(
-                    "h-5 w-5 shrink-0",
-                    isCollapsed ? "mx-auto" : "mr-3",
-                    active
-                      ? "scale-110"
-                      : "group-hover:scale-105 transition-transform"
-                  )}
-                />
+                {item.name === "Notifications" ? (
+                  <span
+                    className={cn(
+                      "relative inline-flex",
+                      isCollapsed ? "mx-auto" : "mr-3"
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "h-5 w-5 shrink-0",
+                        active
+                          ? "scale-110"
+                          : "group-hover:scale-105 transition-transform"
+                      )}
+                    />
+                    {unreadCount > 0 && (
+                      <span
+                        className={cn(
+                          "absolute -top-1 -right-1 inline-flex items-center justify-center rounded-full text-[9px] font-semibold",
+                          isCollapsed
+                            ? "h-3.5 w-3.5"
+                            : "h-4 min-w-[16px] px-0.5",
+                          "bg-red-500 text-white shadow"
+                        )}
+                        aria-label={`${unreadCount} unread notifications`}
+                      >
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  <Icon
+                    className={cn(
+                      "h-5 w-5 shrink-0",
+                      isCollapsed ? "mx-auto" : "mr-3",
+                      active
+                        ? "scale-110"
+                        : "group-hover:scale-105 transition-transform"
+                    )}
+                  />
+                )}
                 <span
                   className={cn("truncate", isCollapsed ? "sr-only" : "inline")}
                 >

@@ -81,9 +81,12 @@ export default function LoginPage() {
         setError(friendly);
       }
 
-      if (errorType === "error") {
-        toast.error(error);
-      }
+      // Show a toast using the computed message immediately
+      const toastMsg =
+        typeof axiosErr?.response?.data?.detail === "string"
+          ? axiosErr.response?.data?.detail
+          : "Invalid credentials. Please check your username/email and password.";
+      toast.error(toastMsg);
     } finally {
       setIsLoading(false);
     }
@@ -160,73 +163,48 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center p-4 transition-colors duration-500">
-      {/* Enhanced METSA Background Pattern with geometric shapes */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Primary green gradient orbs */}
-        <div className="absolute top-10 right-20 w-96 h-96 bg-gradient-radial from-[#1A8B47]/30 via-[#1A8B47]/15 to-transparent rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 left-10 w-80 h-80 bg-gradient-radial from-[#4FBF7C]/25 via-[#4FBF7C]/10 to-transparent rounded-full blur-3xl"></div>
-        
-        {/* Secondary accent orbs */}
-        <div className="absolute top-1/2 left-1/4 w-64 h-64 bg-gradient-radial from-[#90C695]/20 via-[#90C695]/8 to-transparent rounded-full blur-2xl"></div>
-        <div className="absolute top-1/4 right-1/4 w-72 h-72 bg-gradient-radial from-[#1A8B47]/15 via-transparent to-transparent rounded-full blur-2xl"></div>
-        
-        {/* Geometric accent shapes */}
-        <div className="absolute top-20 left-1/3 w-32 h-32 bg-gradient-to-br from-[#1A8B47]/20 to-transparent transform rotate-45 blur-xl"></div>
-        <div className="absolute bottom-32 right-1/3 w-24 h-24 bg-gradient-to-br from-[#4FBF7C]/25 to-transparent transform rotate-12 blur-lg"></div>
-        
-        {/* Subtle grid pattern overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(26,139,71,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(26,139,71,0.03)_1px,transparent_1px)] bg-[size:50px_50px] dark:bg-[linear-gradient(rgba(79,191,124,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(79,191,124,0.02)_1px,transparent_1px)]"></div>
-      </div>
-
+    <div className="min-h-[70vh] flex items-center justify-center p-4 bg-white dark:bg-gray-950">
       {/* Theme Toggle Button */}
       <button
         onClick={toggleTheme}
-        className="absolute top-6 right-6 p-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/60 dark:border-gray-700/60 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group"
+        className="absolute top-6 right-6 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
         aria-label="Toggle theme"
       >
         {resolvedTheme === "dark" ? (
-          <Sun className="w-5 h-5 text-yellow-500 group-hover:rotate-180 transition-transform duration-300" />
+          <Sun className="w-5 h-5" />
         ) : (
-          <Moon className="w-5 h-5 text-gray-700 group-hover:-rotate-12 transition-transform duration-300" />
+          <Moon className="w-5 h-5" />
         )}
       </button>
 
       <div className="relative w-full max-w-md z-10">
         {/* Header */}
-        <div className="text-center mb-10">
-          <div className="relative mx-auto w-[200px] h-[80px] mb-8 drop-shadow-lg">
+        <div className="text-center mb-8">
+          <div className="relative mx-auto w-[180px] h-[64px] mb-6">
             <Image
               src="/metsa_logo.png"
               alt="METSA Logo"
               fill
-              className="object-contain filter drop-shadow-md"
+              className="object-contain"
               priority
             />
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-[#1A8B47] to-gray-900 dark:from-white dark:via-[#4FBF7C] dark:to-white bg-clip-text text-transparent transition-colors duration-300 mb-2">
-            Welcome Back
+          <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">
+            Sign in to MyMetsa
           </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400 transition-colors duration-300 font-medium">
-            Access your underground tank solutions portal
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Secure access to your documents portal
           </p>
-          <div className="mt-4 flex items-center justify-center gap-2 text-sm text-[#1A8B47] dark:text-[#4FBF7C] font-semibold">
-            <Droplets className="w-4 h-4" />
-            <span>Pioneering Excellence in Underground Tank Solutions</span>
-          </div>
         </div>
 
         {/* Login Card */}
-        <div className="relative group">
-          {/* Card glow effect */}
-          <div className="absolute -inset-1 bg-gradient-to-r from-[#1A8B47]/20 via-[#4FBF7C]/20 to-[#90C695]/20 rounded-3xl blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
-          
-          <div className="relative bg-white/80 dark:bg-gray-900/80 backdrop-blur-2xl border border-gray-200/40 dark:border-gray-700/40 rounded-3xl shadow-2xl p-8 transition-all duration-300">
+        <div className="relative">
+          <div className="relative bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Error Message */}
               {error && (
                 <div
-                  className={`relative overflow-hidden border rounded-2xl p-4 transition-all duration-300 ${
+                  className={`relative overflow-hidden border rounded-xl p-4 ${
                     getErrorStyles().container
                   }`}
                 >
@@ -234,17 +212,13 @@ export default function LoginPage() {
                     {getErrorIcon()}
                     <div>
                       <h3
-                        className={`text-sm font-semibold mb-1 ${
+                        className={`text-sm font-medium mb-1 ${
                           getErrorStyles().title
                         }`}
                       >
                         {getErrorTitle()}
                       </h3>
-                      <p
-                        className={`text-sm leading-relaxed ${
-                          getErrorStyles().text
-                        }`}
-                      >
+                      <p className={`text-sm ${getErrorStyles().text}`}>
                         {error}
                       </p>
                     </div>
@@ -269,7 +243,7 @@ export default function LoginPage() {
                     type="text"
                     value={usernameOrEmail}
                     onChange={(e) => setUsernameOrEmail(e.target.value)}
-                    className="w-full h-14 pl-12 pr-4 bg-white/60 dark:bg-gray-800/60 border-2 border-gray-300/50 dark:border-gray-700/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] dark:focus:ring-[#4FBF7C] focus:border-[#1A8B47] dark:focus:border-[#4FBF7C] text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 shadow-sm backdrop-blur-xl hover:bg-white/80 dark:hover:bg-gray-800/80 hover:border-[#1A8B47]/50 dark:hover:border-[#4FBF7C]/50"
+                    className="w-full h-12 pl-12 pr-4 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] focus:border-[#1A8B47] dark:focus:ring-[#1A8B47] dark:focus:border-[#1A8B47] text-gray-900 dark:text-gray-100 placeholder-gray-500"
                     placeholder="Username or email@example.com"
                     required
                     autoComplete="username email"
@@ -291,14 +265,14 @@ export default function LoginPage() {
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="w-5 h-5 text-gray-400 dark:text-gray-500 group-focus-within:text-[#1A8B47] dark:group-focus-within:text-[#4FBF7C] transition-colors duration-200" />
+                    <Lock className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                   </div>
                   <input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full h-14 pl-12 pr-12 bg-white/60 dark:bg-gray-800/60 border-2 border-gray-300/50 dark:border-gray-700/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] dark:focus:ring-[#4FBF7C] focus:border-[#1A8B47] dark:focus:border-[#4FBF7C] text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 shadow-sm backdrop-blur-xl hover:bg-white/80 dark:hover:bg-gray-800/80 hover:border-[#1A8B47]/50 dark:hover:border-[#4FBF7C]/50"
+                    className="w-full h-12 pl-12 pr-12 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] focus:border-[#1A8B47] dark:focus:ring-[#1A8B47] dark:focus:border-[#1A8B47] text-gray-900 dark:text-gray-100 placeholder-gray-500"
                     placeholder="Enter your password"
                     required
                     autoComplete="current-password"
@@ -306,7 +280,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 dark:text-gray-500 hover:text-[#1A8B47] dark:hover:text-[#4FBF7C] transition-colors duration-200"
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
                     }
@@ -326,89 +300,66 @@ export default function LoginPage() {
                   <input
                     id="remember-me"
                     type="checkbox"
-                    className="h-4 w-4 text-[#1A8B47] dark:text-[#4FBF7C] bg-white/60 dark:bg-gray-800/60 border-gray-300 dark:border-gray-600 rounded focus:ring-[#1A8B47] dark:focus:ring-[#4FBF7C] focus:ring-2 transition-all duration-200"
+                    className="h-4 w-4 text-[#1A8B47] bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 rounded focus:ring-[#1A8B47] focus:ring-2"
                   />
                   <label
                     htmlFor="remember-me"
-                    className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-300"
+                    className="ml-3 text-sm text-gray-700 dark:text-gray-300"
                   >
                     Remember me
                   </label>
                 </div>
                 <button
                   type="button"
-                  className="text-sm font-semibold text-[#1A8B47] dark:text-[#4FBF7C] hover:text-[#0F5D2A] dark:hover:text-[#6FD293] transition-colors duration-200 underline-offset-4 hover:underline"
+                  className="text-sm font-medium text-[#1A8B47] hover:underline underline-offset-4"
                 >
                   Forgot password?
                 </button>
               </div>
 
-              {/* Security Info - METSA themed */}
-              <div className="p-4 bg-gradient-to-r from-[#1A8B47]/10 via-[#4FBF7C]/10 to-[#90C695]/10 dark:from-[#1A8B47]/20 dark:via-[#4FBF7C]/20 dark:to-[#90C695]/20 border-2 border-[#1A8B47]/20 dark:border-[#4FBF7C]/30 rounded-2xl backdrop-blur-sm">
-                <div className="flex items-center gap-3 text-sm text-[#0F5D2A] dark:text-[#4FBF7C]">
-                  <Shield className="w-5 h-5 flex-shrink-0" />
-                  <span className="font-semibold">
-                    Secure access to your tank management portal
-                  </span>
+              {/* Security note */}
+              <div className="p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl">
+                <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <Shield className="w-4 h-4" />
+                  <span>Secure access to your MyMetsa portal</span>
                 </div>
               </div>
 
-              {/* Submit Button - Enhanced METSA Green */}
+              {/* Submit Button */}
               <LoadingButton
                 type="submit"
                 isLoading={isLoading}
                 loadingText="Signing you in..."
                 size="lg"
-                className="group relative w-full h-14 bg-gradient-to-r from-[#1A8B47] to-[#0F5D2A] hover:from-[#0F5D2A] hover:to-[#1A8B47] dark:from-[#1A8B47] dark:to-[#4FBF7C] dark:hover:from-[#4FBF7C] dark:hover:to-[#1A8B47] disabled:from-gray-400 disabled:to-gray-500 dark:disabled:from-gray-600 dark:disabled:to-gray-700 text-white font-bold text-lg rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-[1.02] transform"
+                className="group relative w-full h-12 bg-[#1A8B47] hover:bg-[#0F5D2A] disabled:bg-gray-400 text-white font-semibold rounded-xl"
                 icon={
-                  !isLoading ? (
-                    <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform duration-200" />
-                  ) : undefined
+                  !isLoading ? <ArrowRight className="w-5 h-5" /> : undefined
                 }
               >
                 Sign In
               </LoadingButton>
 
               {/* Divider */}
-              <div className="relative my-8">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t-2 border-gray-300 dark:border-gray-700"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-6 py-2 bg-white/80 dark:bg-gray-900/80 text-gray-600 dark:text-gray-400 font-semibold rounded-full backdrop-blur-sm border border-gray-200 dark:border-gray-700">
-                    New to METSA?
-                  </span>
-                </div>
-              </div>
+              <div className="my-4 h-px bg-gray-200 dark:bg-gray-800" />
 
-              {/* Signup Link - Enhanced METSA themed */}
+              {/* Signup Link */}
               <Link
                 href="/signup"
-                className="group flex items-center justify-center gap-3 w-full h-14 px-6 py-3 bg-white dark:bg-gray-800 border-2 border-[#1A8B47]/40 dark:border-[#4FBF7C]/40 text-gray-700 dark:text-gray-300 font-bold text-lg rounded-2xl hover:bg-gradient-to-r hover:from-[#1A8B47]/10 hover:to-[#4FBF7C]/10 dark:hover:from-[#1A8B47]/20 dark:hover:to-[#4FBF7C]/20 hover:border-[#1A8B47] dark:hover:border-[#4FBF7C] transition-all duration-300 shadow-lg hover:shadow-xl backdrop-blur-sm hover:scale-[1.02] transform"
+                className="group flex items-center justify-center gap-2 w-full h-12 px-4 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-800 dark:text-gray-200 hover:border-[#1A8B47]"
               >
-                <UserPlus className="w-6 h-6 text-[#1A8B47] dark:text-[#4FBF7C] group-hover:scale-110 transition-transform duration-200" />
-                Create New Account
+                <UserPlus className="w-5 h-5 text-[#1A8B47]" />
+                Create new account
               </Link>
             </form>
           </div>
         </div>
 
-        {/* Enhanced Footer */}
-        <div className="text-center mt-10 space-y-4">
-          <div className="flex items-center justify-center gap-2 text-base font-semibold text-[#1A8B47] dark:text-[#4FBF7C]">
-            <Droplets className="w-5 h-5" />
-            <span>Innovating New Industry Standards</span>
-          </div>
-          <p className="text-gray-600 dark:text-gray-400 transition-colors duration-300 font-medium">
-            Need help?{" "}
-            <a
-              href="#"
-              className="text-[#1A8B47] dark:text-[#4FBF7C] hover:text-[#0F5D2A] dark:hover:text-[#6FD293] font-bold transition-colors duration-200 underline-offset-4 hover:underline"
-            >
-              Contact our support team
-            </a>{" "}
-            for assistance.
-          </p>
+        {/* Footer */}
+        <div className="text-center mt-8 text-sm text-gray-600 dark:text-gray-400">
+          Need help?{" "}
+          <a href="#" className="text-[#1A8B47] hover:underline">
+            Contact support
+          </a>
         </div>
       </div>
     </div>

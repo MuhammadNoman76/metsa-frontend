@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
@@ -177,14 +178,23 @@ export default function NotificationsPage() {
 
   const markOne = useMutation({
     mutationFn: async (id: string) => api.put(`/notifications/${id}/read`),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      // notify listeners (e.g., sidebar badge) to refresh immediately
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("notifications:updated"));
+      }
+    },
   });
 
   const markAll = useMutation({
     mutationFn: async () => api.put("/notifications/read-all"),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("notifications:updated"));
+      }
+    },
   });
 
   const getNotificationIcon = (type: string) => {
@@ -235,6 +245,37 @@ export default function NotificationsPage() {
     { value: "all", label: "All", count: totalCount },
     { value: "unread", label: "Unread", count: unreadCount },
   ];
+
+  const getPrimaryAction = (n: Notification) => {
+    const isDocumentRelated =
+      n.type === "new_document" ||
+      n.type === "document_updated" ||
+      !!n.document_id;
+
+    if (isDocumentRelated) {
+      return {
+        href: `/${user?.role}/documents`,
+        label: "View Document",
+      } as const;
+    }
+
+    const text = `${n.title} ${n.message}`.toLowerCase();
+    const looksLikeUserSignup =
+      n.type === "user_signup" ||
+      text.includes("signed up") ||
+      text.includes("sign up") ||
+      text.includes("signup") ||
+      text.includes("pending approval");
+
+    if (looksLikeUserSignup) {
+      return {
+        href: `/${user?.role}/approvals`,
+        label: "Open Approvals",
+      } as const;
+    }
+
+    return null;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -404,15 +445,19 @@ export default function NotificationsPage() {
                         {/* Actions */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            {notification.document_id && (
-                              <a
-                                href={`/${user?.role}/documents/${notification.document_id}`}
-                                className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors duration-200"
-                              >
-                                <Eye className="w-4 h-4" />
-                                View Document
-                              </a>
-                            )}
+                            {(() => {
+                              const primary = getPrimaryAction(notification);
+                              if (!primary) return null;
+                              return (
+                                <Link
+                                  href={primary.href}
+                                  className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors duration-200"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  {primary.label}
+                                </Link>
+                              );
+                            })()}
                           </div>
 
                           {!notification.is_read && (

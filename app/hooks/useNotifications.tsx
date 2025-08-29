@@ -12,6 +12,13 @@ export function useNotifications() {
     return () => clearInterval(interval);
   }, []);
 
+  // Refresh immediately when other parts of the app update notifications
+  useEffect(() => {
+    const handler = () => fetchUnreadCount();
+    window.addEventListener("notifications:updated", handler);
+    return () => window.removeEventListener("notifications:updated", handler);
+  }, []);
+
   const fetchUnreadCount = async () => {
     try {
       const response = await api.get("/notifications?unread_only=true");

@@ -9,7 +9,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Metsa Document Portal",
+  title: "Metsa Portal",
   description: "Your trusted partner for industrial solutions",
   icons: {
     icon: [{ url: "/metsa_logo.png", type: "image/png" }],

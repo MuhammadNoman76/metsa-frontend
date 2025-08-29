@@ -31,9 +31,22 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      Cookies.remove("access_token");
-      // Use relative path for redirect
-      window.location.href = "/login";
+      const url: string | undefined = error.config?.url;
+      const isAuthRoute =
+        url?.includes("/auth/login") || url?.includes("/auth/signup");
+      const isOnAuthPage =
+        typeof window !== "undefined" &&
+        (window.location.pathname === "/login" ||
+          window.location.pathname === "/signup");
+
+      if (!isAuthRoute) {
+        Cookies.remove("access_token");
+      }
+
+      // Avoid hard redirect when already on auth pages or when the request was the auth call itself
+      if (!isAuthRoute && !isOnAuthPage) {
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   }

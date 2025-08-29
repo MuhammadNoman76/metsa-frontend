@@ -420,39 +420,6 @@ export default function SettingsPage() {
                         </div>
                       </div>
 
-                      {/* Theme Preview */}
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
-                          Preview
-                        </h3>
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <span className="text-gray-900 dark:text-white font-medium">
-                                Sample Text
-                              </span>
-                              <span className="text-gray-600 dark:text-gray-400">
-                                Secondary Text
-                              </span>
-                            </div>
-                            <div className="flex gap-2">
-                              <div className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm">
-                                Primary Button
-                              </div>
-                              <div className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg text-sm">
-                                Secondary Button
-                              </div>
-                            </div>
-                            <div className="p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                              <p className="text-gray-900 dark:text-white text-sm">
-                                This is how content cards will appear with the
-                                selected theme.
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
                       <div className="pt-4 flex justify-end">
                         <p className="text-sm text-gray-600 dark:text-gray-400">
                           Theme preference is automatically saved
