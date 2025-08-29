@@ -6,7 +6,9 @@ WORKDIR /app
 
 # Copy package files first
 COPY package.json package-lock.json* ./
-RUN npm ci
+
+# Install dependencies with legacy peer deps to handle React version conflicts
+RUN npm ci --legacy-peer-deps
 
 # Copy source files
 COPY . .
