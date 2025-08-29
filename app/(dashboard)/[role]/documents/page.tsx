@@ -423,18 +423,17 @@ export default function DocumentsPage() {
     }
   };
 
-  const handlePreview = (doc: Document) => {
-    const canDownload =
-      !doc.is_viewable_only && user?.role !== UserRole.CUSTOMER;
-    setPreviewModal({
-      isOpen: true,
-      documentId: doc.id,
-      documentTitle: doc.title,
-      fileName: doc.file_name,
-      mimeType: doc.mime_type,
-      canDownload,
-    });
-  };
+const handlePreview = (doc: Document) => {
+  setPreviewModal({
+    isOpen: true,
+    documentId: doc.id,
+    documentTitle: doc.title,
+    fileName: doc.file_name,
+    mimeType: doc.mime_type,
+    canDownload: false, // Always false to disable download
+  });
+};
+
 
   const handleEdit = (doc: Document) => {
     router.push(`/${user?.role}/documents/${doc.id}/edit`);

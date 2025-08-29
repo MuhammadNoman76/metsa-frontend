@@ -19,6 +19,8 @@ import {
   UserPlus,
   Mail,
   AtSign,
+  Droplets,
+  Shield,
 } from "lucide-react";
 import LoadingButton from "@/components/LoadingButton";
 import { useToast } from "@/contexts/ToastContext";
@@ -150,58 +152,77 @@ export default function LoginPage() {
   const getInputIcon = () => {
     if (isEmail(usernameOrEmail)) {
       return (
-        <Mail className="w-5 h-5 text-gray-400 dark:text-gray-500 group-focus-within:text-blue-500 dark:group-focus-within:text-blue-400 transition-colors duration-200" />
+        <Mail className="w-5 h-5 text-gray-400 dark:text-gray-500 group-focus-within:text-[#1A8B47] dark:group-focus-within:text-[#4FBF7C] transition-colors duration-200" />
       );
     }
     return (
-      <User className="w-5 h-5 text-gray-400 dark:text-gray-500 group-focus-within:text-blue-500 dark:group-focus-within:text-blue-400 transition-colors duration-200" />
+      <User className="w-5 h-5 text-gray-400 dark:text-gray-500 group-focus-within:text-[#1A8B47] dark:group-focus-within:text-[#4FBF7C] transition-colors duration-200" />
     );
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center p-4 transition-colors duration-500">
-      {/* Background Pattern */}
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center p-4 transition-colors duration-500">
+      {/* Enhanced METSA Background Pattern with geometric shapes */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-32 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-400/20 dark:from-blue-600/10 dark:to-purple-600/10 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-32 w-80 h-80 bg-gradient-to-br from-emerald-400/20 to-blue-400/20 dark:from-emerald-600/10 dark:to-blue-600/10 rounded-full blur-3xl"></div>
+        {/* Primary green gradient orbs */}
+        <div className="absolute top-10 right-20 w-96 h-96 bg-gradient-radial from-[#1A8B47]/30 via-[#1A8B47]/15 to-transparent rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 left-10 w-80 h-80 bg-gradient-radial from-[#4FBF7C]/25 via-[#4FBF7C]/10 to-transparent rounded-full blur-3xl"></div>
+        
+        {/* Secondary accent orbs */}
+        <div className="absolute top-1/2 left-1/4 w-64 h-64 bg-gradient-radial from-[#90C695]/20 via-[#90C695]/8 to-transparent rounded-full blur-2xl"></div>
+        <div className="absolute top-1/4 right-1/4 w-72 h-72 bg-gradient-radial from-[#1A8B47]/15 via-transparent to-transparent rounded-full blur-2xl"></div>
+        
+        {/* Geometric accent shapes */}
+        <div className="absolute top-20 left-1/3 w-32 h-32 bg-gradient-to-br from-[#1A8B47]/20 to-transparent transform rotate-45 blur-xl"></div>
+        <div className="absolute bottom-32 right-1/3 w-24 h-24 bg-gradient-to-br from-[#4FBF7C]/25 to-transparent transform rotate-12 blur-lg"></div>
+        
+        {/* Subtle grid pattern overlay */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(26,139,71,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(26,139,71,0.03)_1px,transparent_1px)] bg-[size:50px_50px] dark:bg-[linear-gradient(rgba(79,191,124,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(79,191,124,0.02)_1px,transparent_1px)]"></div>
       </div>
 
       {/* Theme Toggle Button */}
       <button
         onClick={toggleTheme}
-        className="absolute top-6 right-6 p-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+        className="absolute top-6 right-6 p-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/60 dark:border-gray-700/60 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group"
         aria-label="Toggle theme"
       >
         {resolvedTheme === "dark" ? (
-          <Sun className="w-5 h-5 text-yellow-500" />
+          <Sun className="w-5 h-5 text-yellow-500 group-hover:rotate-180 transition-transform duration-300" />
         ) : (
-          <Moon className="w-5 h-5 text-gray-700" />
+          <Moon className="w-5 h-5 text-gray-700 group-hover:-rotate-12 transition-transform duration-300" />
         )}
       </button>
 
-      <div className="relative w-full max-w-md">
+      <div className="relative w-full max-w-md z-10">
         {/* Header */}
-        <div className="text-center mb-8">
-          <Image
-            src="/metsa_logo.png"
-            alt="Metsa Logo"
-            width={180}
-            height={50}
-            className="mx-auto"
-            priority
-          />
-          <h1 className="mt-8 text-4xl font-bold text-gray-900 dark:text-white transition-colors duration-300">
+        <div className="text-center mb-10">
+          <div className="relative mx-auto w-[200px] h-[80px] mb-8 drop-shadow-lg">
+            <Image
+              src="/metsa_logo.png"
+              alt="METSA Logo"
+              fill
+              className="object-contain filter drop-shadow-md"
+              priority
+            />
+          </div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-[#1A8B47] to-gray-900 dark:from-white dark:via-[#4FBF7C] dark:to-white bg-clip-text text-transparent transition-colors duration-300 mb-2">
             Welcome Back
           </h1>
-          <p className="mt-3 text-lg text-gray-600 dark:text-gray-400 transition-colors duration-300">
-            Sign in to access your document portal
+          <p className="text-lg text-gray-600 dark:text-gray-400 transition-colors duration-300 font-medium">
+            Access your underground tank solutions portal
           </p>
+          <div className="mt-4 flex items-center justify-center gap-2 text-sm text-[#1A8B47] dark:text-[#4FBF7C] font-semibold">
+            <Droplets className="w-4 h-4" />
+            <span>Pioneering Excellence in Underground Tank Solutions</span>
+          </div>
         </div>
 
         {/* Login Card */}
-        <div className="relative">
-          <div className="absolute inset-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-3xl shadow-2xl"></div>
-          <div className="relative bg-white/70 dark:bg-gray-900/70 backdrop-blur-2xl border border-gray-200/20 dark:border-gray-700/30 rounded-3xl shadow-2xl p-8 transition-all duration-300">
+        <div className="relative group">
+          {/* Card glow effect */}
+          <div className="absolute -inset-1 bg-gradient-to-r from-[#1A8B47]/20 via-[#4FBF7C]/20 to-[#90C695]/20 rounded-3xl blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
+          
+          <div className="relative bg-white/80 dark:bg-gray-900/80 backdrop-blur-2xl border border-gray-200/40 dark:border-gray-700/40 rounded-3xl shadow-2xl p-8 transition-all duration-300">
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Error Message */}
               {error && (
@@ -249,7 +270,7 @@ export default function LoginPage() {
                     type="text"
                     value={usernameOrEmail}
                     onChange={(e) => setUsernameOrEmail(e.target.value)}
-                    className="w-full h-14 pl-12 pr-4 bg-white/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 shadow-sm backdrop-blur-xl hover:bg-white/70 dark:hover:bg-gray-800/70"
+                    className="w-full h-14 pl-12 pr-4 bg-white/60 dark:bg-gray-800/60 border-2 border-gray-300/50 dark:border-gray-700/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] dark:focus:ring-[#4FBF7C] focus:border-[#1A8B47] dark:focus:border-[#4FBF7C] text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 shadow-sm backdrop-blur-xl hover:bg-white/80 dark:hover:bg-gray-800/80 hover:border-[#1A8B47]/50 dark:hover:border-[#4FBF7C]/50"
                     placeholder="Username or email@example.com"
                     required
                     autoComplete="username email"
@@ -271,14 +292,14 @@ export default function LoginPage() {
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="w-5 h-5 text-gray-400 dark:text-gray-500 group-focus-within:text-blue-500 dark:group-focus-within:text-blue-400 transition-colors duration-200" />
+                    <Lock className="w-5 h-5 text-gray-400 dark:text-gray-500 group-focus-within:text-[#1A8B47] dark:group-focus-within:text-[#4FBF7C] transition-colors duration-200" />
                   </div>
                   <input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full h-14 pl-12 pr-12 bg-white/50 dark:bg-gray-800/50 border border-gray-300 dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 shadow-sm backdrop-blur-xl hover:bg-white/70 dark:hover:bg-gray-800/70"
+                    className="w-full h-14 pl-12 pr-12 bg-white/60 dark:bg-gray-800/60 border-2 border-gray-300/50 dark:border-gray-700/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#1A8B47] dark:focus:ring-[#4FBF7C] focus:border-[#1A8B47] dark:focus:border-[#4FBF7C] text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 transition-all duration-300 shadow-sm backdrop-blur-xl hover:bg-white/80 dark:hover:bg-gray-800/80 hover:border-[#1A8B47]/50 dark:hover:border-[#4FBF7C]/50"
                     placeholder="Enter your password"
                     required
                     autoComplete="current-password"
@@ -286,7 +307,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200"
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 dark:text-gray-500 hover:text-[#1A8B47] dark:hover:text-[#4FBF7C] transition-colors duration-200"
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
                     }
@@ -306,79 +327,84 @@ export default function LoginPage() {
                   <input
                     id="remember-me"
                     type="checkbox"
-                    className="h-4 w-4 text-blue-600 dark:text-blue-500 bg-white/50 dark:bg-gray-800/50 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-2 transition-all duration-200"
+                    className="h-4 w-4 text-[#1A8B47] dark:text-[#4FBF7C] bg-white/60 dark:bg-gray-800/60 border-gray-300 dark:border-gray-600 rounded focus:ring-[#1A8B47] dark:focus:ring-[#4FBF7C] focus:ring-2 transition-all duration-200"
                   />
                   <label
                     htmlFor="remember-me"
-                    className="ml-3 text-sm text-gray-700 dark:text-gray-300 transition-colors duration-300"
+                    className="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300 transition-colors duration-300"
                   >
                     Remember me
                   </label>
                 </div>
                 <button
                   type="button"
-                  className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 transition-colors duration-200"
+                  className="text-sm font-semibold text-[#1A8B47] dark:text-[#4FBF7C] hover:text-[#0F5D2A] dark:hover:text-[#6FD293] transition-colors duration-200 underline-offset-4 hover:underline"
                 >
                   Forgot password?
                 </button>
               </div>
 
-              {/* Login Methods Info */}
-              <div className="p-3 bg-blue-50/50 dark:bg-blue-900/20 border border-blue-200/50 dark:border-blue-800/50 rounded-xl">
-                <div className="flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
-                  <Info className="w-4 h-4 flex-shrink-0" />
-                  <span>
-                    You can sign in using your username or email address
+              {/* Security Info - METSA themed */}
+              <div className="p-4 bg-gradient-to-r from-[#1A8B47]/10 via-[#4FBF7C]/10 to-[#90C695]/10 dark:from-[#1A8B47]/20 dark:via-[#4FBF7C]/20 dark:to-[#90C695]/20 border-2 border-[#1A8B47]/20 dark:border-[#4FBF7C]/30 rounded-2xl backdrop-blur-sm">
+                <div className="flex items-center gap-3 text-sm text-[#0F5D2A] dark:text-[#4FBF7C]">
+                  <Shield className="w-5 h-5 flex-shrink-0" />
+                  <span className="font-semibold">
+                    Secure access to your tank management portal
                   </span>
                 </div>
               </div>
 
-              {/* Submit Button */}
+              {/* Submit Button - Enhanced METSA Green */}
               <LoadingButton
                 type="submit"
                 isLoading={isLoading}
                 loadingText="Signing you in..."
                 size="lg"
-                className="group relative w-full bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-500 dark:to-purple-500 hover:from-blue-700 hover:to-purple-700 dark:hover:from-blue-600 dark:hover:to-purple-600 disabled:from-gray-400 disabled:to-gray-500 dark:disabled:from-gray-600 dark:disabled:to-gray-700 text-white font-semibold rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl dark:shadow-blue-500/25 dark:hover:shadow-blue-500/40"
+                className="group relative w-full h-14 bg-gradient-to-r from-[#1A8B47] to-[#0F5D2A] hover:from-[#0F5D2A] hover:to-[#1A8B47] dark:from-[#1A8B47] dark:to-[#4FBF7C] dark:hover:from-[#4FBF7C] dark:hover:to-[#1A8B47] disabled:from-gray-400 disabled:to-gray-500 dark:disabled:from-gray-600 dark:disabled:to-gray-700 text-white font-bold text-lg rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-[1.02] transform"
                 icon={
                   !isLoading ? (
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
+                    <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform duration-200" />
                   ) : undefined
                 }
               >
                 Sign In
               </LoadingButton>
 
-              {/* Signup Link */}
-              <div className="relative">
+              {/* Divider */}
+              <div className="relative my-8">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
+                  <div className="w-full border-t-2 border-gray-300 dark:border-gray-700"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-white/70 dark:bg-gray-900/70 text-gray-600 dark:text-gray-400">
+                  <span className="px-6 py-2 bg-white/80 dark:bg-gray-900/80 text-gray-600 dark:text-gray-400 font-semibold rounded-full backdrop-blur-sm border border-gray-200 dark:border-gray-700">
                     New to METSA?
                   </span>
                 </div>
               </div>
 
+              {/* Signup Link - Enhanced METSA themed */}
               <Link
                 href="/signup"
-                className="group flex items-center justify-center gap-2 w-full px-6 py-3 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-200 shadow-sm"
+                className="group flex items-center justify-center gap-3 w-full h-14 px-6 py-3 bg-white dark:bg-gray-800 border-2 border-[#1A8B47]/40 dark:border-[#4FBF7C]/40 text-gray-700 dark:text-gray-300 font-bold text-lg rounded-2xl hover:bg-gradient-to-r hover:from-[#1A8B47]/10 hover:to-[#4FBF7C]/10 dark:hover:from-[#1A8B47]/20 dark:hover:to-[#4FBF7C]/20 hover:border-[#1A8B47] dark:hover:border-[#4FBF7C] transition-all duration-300 shadow-lg hover:shadow-xl backdrop-blur-sm hover:scale-[1.02] transform"
               >
-                <UserPlus className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
+                <UserPlus className="w-6 h-6 text-[#1A8B47] dark:text-[#4FBF7C] group-hover:scale-110 transition-transform duration-200" />
                 Create New Account
               </Link>
             </form>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-gray-600 dark:text-gray-400 transition-colors duration-300">
+        {/* Enhanced Footer */}
+        <div className="text-center mt-10 space-y-4">
+          <div className="flex items-center justify-center gap-2 text-base font-semibold text-[#1A8B47] dark:text-[#4FBF7C]">
+            <Droplets className="w-5 h-5" />
+            <span>Innovating New Industry Standards</span>
+          </div>
+          <p className="text-gray-600 dark:text-gray-400 transition-colors duration-300 font-medium">
             Need help?{" "}
             <a
               href="#"
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 font-medium transition-colors duration-200"
+              className="text-[#1A8B47] dark:text-[#4FBF7C] hover:text-[#0F5D2A] dark:hover:text-[#6FD293] font-bold transition-colors duration-200 underline-offset-4 hover:underline"
             >
               Contact our support team
             </a>{" "}

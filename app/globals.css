@@ -16,3 +16,37 @@
 html.mounted * {
   @apply transition-colors duration-300;
 }
+
+/* PDF viewer styles for mobile optimization */
+.react-pdf__Document {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.react-pdf__Page {
+  max-width: 100%;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+}
+
+.react-pdf__Page canvas {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* Mobile specific optimizations */
+@media (max-width: 768px) {
+  .react-pdf__Page {
+    width: 100% !important;
+  }
+  
+  .react-pdf__Page__textContent {
+    width: 100% !important;
+  }
+  
+  .react-pdf__Page__annotations {
+    width: 100% !important;
+  }
+}
+
