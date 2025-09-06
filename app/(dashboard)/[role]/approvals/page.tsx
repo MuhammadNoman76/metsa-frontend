@@ -18,7 +18,6 @@ import {
   Building,
   Mail,
   Phone,
-  Calendar,
   Shield,
   Loader2,
   Filter,
@@ -30,8 +29,6 @@ import {
   AlertCircle,
   Users,
   MapPin,
-  CheckCircle,
-  XCircle,
 } from "lucide-react";
 
 /* Hook: auto-hide on scroll (down hides, up shows) */

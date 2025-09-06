@@ -18,7 +18,6 @@ import {
   Save,
   Loader2,
   AlertCircle,
-  X,
   CheckCircle,
   XCircle,
   Eye,
@@ -28,6 +27,7 @@ import {
 import api from "@/lib/api";
 import { UserRole } from "@/types";
 import CategoryManagement from "@/components/CategoryManagement";
+import type { LucideIcon } from "lucide-react";
 
 // Define notification settings type
 type NotificationKey =
@@ -40,6 +40,16 @@ interface NotificationSetting {
   key: NotificationKey;
   label: string;
   description: string;
+}
+
+// Define error response type
+interface ApiError {
+  response?: {
+    data?: {
+      detail?: string;
+    };
+    status?: number;
+  };
 }
 
 // Confirmation Dialog Component
@@ -60,7 +70,7 @@ const ConfirmDialog = ({
   message: string;
   confirmText?: string;
   confirmButtonClass?: string;
-  icon?: any;
+  icon?: LucideIcon;
 }) => {
   if (!isOpen) return null;
 
@@ -204,7 +214,7 @@ export default function SettingsPage() {
     setLoading(true);
     
     try {
-      const response = await api.put(`/users/${user?.id}`, {
+      await api.put(`/users/${user?.id}`, {
         email: profileData.email,
         username: profileData.username,
       });
@@ -217,9 +227,10 @@ export default function SettingsPage() {
       // You might want to update the auth context here if needed
       // await refreshUserData();
       
-    } catch (error: any) {
-      console.error("Error updating profile:", error);
-      const errorMessage = error.response?.data?.detail || "Failed to update profile";
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
+      console.error("Error updating profile:", apiError);
+      const errorMessage = apiError.response?.data?.detail || "Failed to update profile";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -275,11 +286,12 @@ export default function SettingsPage() {
       setShowNewPassword(false);
       setShowConfirmPassword(false);
       
-    } catch (error: any) {
-      console.error("Error changing password:", error);
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
+      console.error("Error changing password:", apiError);
       
-      const status = error.response?.status;
-      const errorMessage = error.response?.data?.detail;
+      const status = apiError.response?.status;
+      const errorMessage = apiError.response?.data?.detail;
       
       if (status === 400) {
         if (errorMessage?.includes("current password")) {
@@ -316,8 +328,9 @@ export default function SettingsPage() {
       // Update original state to reflect saved state
       Object.assign(originalNotifications, notifications);
       
-    } catch (error: any) {
-      console.error("Error saving notifications:", error);
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
+      console.error("Error saving notifications:", apiError);
       toast.error("Failed to save notification preferences");
     } finally {
       setSavingNotifications(false);

@@ -17,9 +17,6 @@ import {
   Clock,
   UserPlus,
   Mail,
-  AtSign,
-  Droplets,
-  Shield,
 } from "lucide-react";
 import LoadingButton from "@/components/LoadingButton";
 import { useToast } from "@/contexts/ToastContext";

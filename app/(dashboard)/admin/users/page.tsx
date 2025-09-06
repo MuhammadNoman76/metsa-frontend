@@ -23,7 +23,6 @@ import {
   Grid,
   List,
   RefreshCw,
-  KeyRound,
 } from "lucide-react";
 import api from "@/lib/api";
 import { User, UserRole } from "@/types";
