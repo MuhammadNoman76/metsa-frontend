@@ -187,7 +187,7 @@ export default function LoginPage() {
             />
           </div>
           <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">
-            Sign in to MyMetsa
+            Sign in to Metsa Portal
           </h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Secure access to your Metsa portal
@@ -246,10 +246,6 @@ export default function LoginPage() {
                     autoComplete="username email"
                   />
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-                  <AtSign className="w-3 h-3" />
-                  You can sign in using either your username or email address
-                </p>
               </div>
 
               {/* Password Field */}
@@ -312,14 +308,6 @@ export default function LoginPage() {
                 >
                   Forgot password?
                 </button>
-              </div>
-
-              {/* Security note */}
-              <div className="p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl">
-                <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  <Shield className="w-4 h-4" />
-                  <span>Secure access to your MyMetsa portal</span>
-                </div>
               </div>
 
               {/* Submit Button */}

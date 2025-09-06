@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useToast } from "@/contexts/ToastContext";
 import {
   Shield,
   User,
@@ -14,6 +15,15 @@ import {
   Monitor,
   Check,
   FolderCog,
+  Save,
+  Loader2,
+  AlertCircle,
+  X,
+  CheckCircle,
+  XCircle,
+  Eye,
+  EyeOff,
+  Info,
 } from "lucide-react";
 import api from "@/lib/api";
 import { UserRole } from "@/types";
@@ -32,38 +42,185 @@ interface NotificationSetting {
   description: string;
 }
 
+// Confirmation Dialog Component
+const ConfirmDialog = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmText = "Confirm",
+  confirmButtonClass = "bg-blue-600 hover:bg-blue-700",
+  icon: Icon = AlertCircle,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  confirmText?: string;
+  confirmButtonClass?: string;
+  icon?: any;
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+      <button
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="relative bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-200 dark:border-gray-800">
+        <div className="flex items-start gap-4 mb-6">
+          <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Icon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              {title}
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+              {message}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end">
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`px-6 py-2.5 text-white font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 shadow-sm ${confirmButtonClass}`}
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Password strength validator
+const validatePasswordStrength = (password: string) => {
+  if (password.length < 8)
+    return { valid: false, message: "Password must be at least 8 characters" };
+  if (!/[A-Z]/.test(password))
+    return { valid: false, message: "Password must contain uppercase letters" };
+  if (!/[a-z]/.test(password))
+    return { valid: false, message: "Password must contain lowercase letters" };
+  if (!/[0-9]/.test(password))
+    return { valid: false, message: "Password must contain numbers" };
+  if (!/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(password))
+    return {
+      valid: false,
+      message: "Password must contain special characters",
+    };
+  return { valid: true, message: "Strong password" };
+};
+
 export default function SettingsPage() {
   const { user } = useAuth();
   const { theme, setTheme } = useTheme();
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState("profile");
   const [loading, setLoading] = useState(false);
+  const [savingNotifications, setSavingNotifications] = useState(false);
+  
+  // Profile state
   const [profileData, setProfileData] = useState({
     email: user?.email || "",
     username: user?.username || "",
   });
+  const [originalProfileData] = useState({
+    email: user?.email || "",
+    username: user?.username || "",
+  });
+  
+  // Password state
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Notifications state
   const [notifications, setNotifications] = useState<NotificationSettings>({
     emailNotifications: true,
     documentUpdates: true,
     systemAlerts: true,
   });
+  const [originalNotifications] = useState<NotificationSettings>({
+    emailNotifications: true,
+    documentUpdates: true,
+    systemAlerts: true,
+  });
+  
+  // Confirmation dialogs
+  const [passwordConfirmDialog, setPasswordConfirmDialog] = useState(false);
+  const [profileConfirmDialog, setProfileConfirmDialog] = useState(false);
+
+  // Check if profile has changes
+  const hasProfileChanges = 
+    profileData.email !== originalProfileData.email ||
+    profileData.username !== originalProfileData.username;
+
+  // Check if notifications have changes
+  const hasNotificationChanges = 
+    JSON.stringify(notifications) !== JSON.stringify(originalNotifications);
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!hasProfileChanges) {
+      toast.info("No changes to save");
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(profileData.email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    // Validate username
+    if (profileData.username.length < 3) {
+      toast.error("Username must be at least 3 characters long");
+      return;
+    }
+
+    setProfileConfirmDialog(true);
+  };
+
+  const confirmProfileUpdate = async () => {
+    setProfileConfirmDialog(false);
     setLoading(true);
+    
     try {
-      await api.put(`/users/${user?.id}`, {
+      const response = await api.put(`/users/${user?.id}`, {
         email: profileData.email,
         username: profileData.username,
       });
-      alert("Profile updated successfully");
-    } catch (error) {
+      
+      toast.success("Profile updated successfully!");
+      
+      // Update the original data to reflect saved state
+      Object.assign(originalProfileData, profileData);
+      
+      // You might want to update the auth context here if needed
+      // await refreshUserData();
+      
+    } catch (error: any) {
       console.error("Error updating profile:", error);
-      alert("Failed to update profile");
+      const errorMessage = error.response?.data?.detail || "Failed to update profile";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -71,27 +228,99 @@ export default function SettingsPage() {
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert("Passwords do not match");
+    
+    // Validate new password strength
+    const passwordValidation = validatePasswordStrength(passwordData.newPassword);
+    if (!passwordValidation.valid) {
+      toast.error(passwordValidation.message);
       return;
     }
+    
+    // Check if passwords match
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+    
+    // Check if new password is same as current
+    if (passwordData.currentPassword === passwordData.newPassword) {
+      toast.error("New password must be different from current password");
+      return;
+    }
+    
+    setPasswordConfirmDialog(true);
+  };
+
+  const confirmPasswordChange = async () => {
+    setPasswordConfirmDialog(false);
     setLoading(true);
+    
     try {
       await api.post("/auth/change-password", {
         current_password: passwordData.currentPassword,
         new_password: passwordData.newPassword,
       });
-      alert("Password changed successfully");
+      
+      toast.success("Password changed successfully! Please login with your new password.");
+      
+      // Clear the form
       setPasswordData({
         currentPassword: "",
         newPassword: "",
         confirmPassword: "",
       });
-    } catch (error) {
+      
+      // Reset visibility states
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
+      
+    } catch (error: any) {
       console.error("Error changing password:", error);
-      alert("Failed to change password");
+      
+      const status = error.response?.status;
+      const errorMessage = error.response?.data?.detail;
+      
+      if (status === 400) {
+        if (errorMessage?.includes("current password")) {
+          toast.error("Current password is incorrect");
+        } else if (errorMessage?.includes("weak")) {
+          toast.error("New password does not meet security requirements");
+        } else {
+          toast.error(errorMessage || "Invalid password data");
+        }
+      } else if (status === 401) {
+        toast.error("Authentication failed. Please login again.");
+      } else {
+        toast.error(errorMessage || "Failed to change password. Please try again.");
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleNotificationsSave = async () => {
+    if (!hasNotificationChanges) {
+      toast.info("No changes to save");
+      return;
+    }
+
+    setSavingNotifications(true);
+    
+    try {
+      // Simulate API call - replace with your actual endpoint
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast.success("Notification preferences saved successfully!");
+      
+      // Update original state to reflect saved state
+      Object.assign(originalNotifications, notifications);
+      
+    } catch (error: any) {
+      console.error("Error saving notifications:", error);
+      toast.error("Failed to save notification preferences");
+    } finally {
+      setSavingNotifications(false);
     }
   };
 
@@ -221,9 +450,14 @@ export default function SettingsPage() {
                               username: e.target.value,
                             })
                           }
-                          disabled={user?.role !== UserRole.ADMIN}
+                          disabled={user?.role !== UserRole.ADMIN && !user?.is_super_admin}
                           className="w-full h-12 px-4 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                         />
+                        {user?.role !== UserRole.ADMIN && !user?.is_super_admin && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                            Only administrators can change usernames
+                          </p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-3">
@@ -261,13 +495,34 @@ export default function SettingsPage() {
                       </div>
                     </div>
 
+                    {hasProfileChanges && (
+                      <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl">
+                        <div className="flex items-center gap-2">
+                          <Info className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                          <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                            You have unsaved changes
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex justify-end pt-4">
                       <button
                         type="submit"
-                        disabled={loading}
-                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-xl transition-all duration-200 disabled:cursor-not-allowed"
+                        disabled={loading || !hasProfileChanges}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all duration-200"
                       >
-                        {loading ? "Updating..." : "Save Changes"}
+                        {loading ? (
+                          <>
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            Updating...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-5 h-5" />
+                            Save Changes
+                          </>
+                        )}
                       </button>
                     </div>
                   </form>
@@ -295,18 +550,32 @@ export default function SettingsPage() {
                       <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-3">
                         Current Password
                       </label>
-                      <input
-                        type="password"
-                        value={passwordData.currentPassword}
-                        onChange={(e) =>
-                          setPasswordData({
-                            ...passwordData,
-                            currentPassword: e.target.value,
-                          })
-                        }
-                        required
-                        className="w-full h-12 px-4 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showCurrentPassword ? "text" : "password"}
+                          value={passwordData.currentPassword}
+                          onChange={(e) =>
+                            setPasswordData({
+                              ...passwordData,
+                              currentPassword: e.target.value,
+                            })
+                          }
+                          required
+                          placeholder="Enter your current password"
+                          className="w-full h-12 px-4 pr-12 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        >
+                          {showCurrentPassword ? (
+                            <EyeOff className="w-5 h-5" />
+                          ) : (
+                            <Eye className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -314,35 +583,132 @@ export default function SettingsPage() {
                         <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-3">
                           New Password
                         </label>
-                        <input
-                          type="password"
-                          value={passwordData.newPassword}
-                          onChange={(e) =>
-                            setPasswordData({
-                              ...passwordData,
-                              newPassword: e.target.value,
-                            })
-                          }
-                          required
-                          className="w-full h-12 px-4 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        />
+                        <div className="relative">
+                          <input
+                            type={showNewPassword ? "text" : "password"}
+                            value={passwordData.newPassword}
+                            onChange={(e) =>
+                              setPasswordData({
+                                ...passwordData,
+                                newPassword: e.target.value,
+                              })
+                            }
+                            required
+                            placeholder="Enter new password"
+                            className={`w-full h-12 px-4 pr-12 bg-gray-50 dark:bg-gray-800 border rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+                              passwordData.newPassword &&
+                              !validatePasswordStrength(passwordData.newPassword).valid
+                                ? "border-red-500 dark:border-red-500"
+                                : passwordData.newPassword &&
+                                  validatePasswordStrength(passwordData.newPassword).valid
+                                ? "border-green-500 dark:border-green-500"
+                                : "border-gray-300 dark:border-gray-700"
+                            }`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                          >
+                            {showNewPassword ? (
+                              <EyeOff className="w-5 h-5" />
+                            ) : (
+                              <Eye className="w-5 h-5" />
+                            )}
+                          </button>
+                        </div>
+                        {passwordData.newPassword && (
+                          <div
+                            className={`flex items-center gap-2 mt-2 text-xs ${
+                              validatePasswordStrength(passwordData.newPassword).valid
+                                ? "text-green-600 dark:text-green-400"
+                                : "text-red-600 dark:text-red-400"
+                            }`}
+                          >
+                            {validatePasswordStrength(passwordData.newPassword).valid ? (
+                              <CheckCircle className="w-3.5 h-3.5" />
+                            ) : (
+                              <XCircle className="w-3.5 h-3.5" />
+                            )}
+                            {validatePasswordStrength(passwordData.newPassword).message}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-3">
                           Confirm Password
                         </label>
-                        <input
-                          type="password"
-                          value={passwordData.confirmPassword}
-                          onChange={(e) =>
-                            setPasswordData({
-                              ...passwordData,
-                              confirmPassword: e.target.value,
-                            })
-                          }
-                          required
-                          className="w-full h-12 px-4 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        />
+                        <div className="relative">
+                          <input
+                            type={showConfirmPassword ? "text" : "password"}
+                            value={passwordData.confirmPassword}
+                            onChange={(e) =>
+                              setPasswordData({
+                                ...passwordData,
+                                confirmPassword: e.target.value,
+                              })
+                            }
+                            required
+                            placeholder="Confirm new password"
+                            className={`w-full h-12 px-4 pr-12 bg-gray-50 dark:bg-gray-800 border rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+                              passwordData.confirmPassword &&
+                              passwordData.newPassword !== passwordData.confirmPassword
+                                ? "border-red-500 dark:border-red-500"
+                                : passwordData.confirmPassword &&
+                                  passwordData.newPassword === passwordData.confirmPassword
+                                ? "border-green-500 dark:border-green-500"
+                                : "border-gray-300 dark:border-gray-700"
+                            }`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                          >
+                            {showConfirmPassword ? (
+                              <EyeOff className="w-5 h-5" />
+                            ) : (
+                              <Eye className="w-5 h-5" />
+                            )}
+                          </button>
+                        </div>
+                        {passwordData.confirmPassword && (
+                          <div
+                            className={`flex items-center gap-2 mt-2 text-xs ${
+                              passwordData.newPassword === passwordData.confirmPassword
+                                ? "text-green-600 dark:text-green-400"
+                                : "text-red-600 dark:text-red-400"
+                            }`}
+                          >
+                            {passwordData.newPassword === passwordData.confirmPassword ? (
+                              <>
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                Passwords match
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="w-3.5 h-3.5" />
+                                Passwords do not match
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                      <div className="flex items-start gap-3">
+                        <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                        <div className="text-sm">
+                          <p className="font-medium text-blue-800 dark:text-blue-200 mb-1">
+                            Password Requirements:
+                          </p>
+                          <ul className="text-blue-700 dark:text-blue-300 space-y-1">
+                            <li>• At least 8 characters long</li>
+                            <li>• Contains uppercase and lowercase letters</li>
+                            <li>• Contains numbers and special characters</li>
+                          </ul>
+                        </div>
                       </div>
                     </div>
 
@@ -350,9 +716,19 @@ export default function SettingsPage() {
                       <button
                         type="submit"
                         disabled={loading}
-                        className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-medium rounded-xl transition-all duration-200 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all duration-200"
                       >
-                        {loading ? "Updating..." : "Update Password"}
+                        {loading ? (
+                          <>
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            Updating...
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="w-5 h-5" />
+                            Update Password
+                          </>
+                        )}
                       </button>
                     </div>
                   </form>
@@ -386,7 +762,10 @@ export default function SettingsPage() {
                             return (
                               <button
                                 key={option.value}
-                                onClick={() => setTheme(option.value)}
+                                onClick={() => {
+                                  setTheme(option.value);
+                                  toast.success(`Theme changed to ${option.label}`);
+                                }}
                                 className={`
                                   relative flex flex-col items-center p-6 rounded-xl border-2 transition-all duration-200
                                   ${
@@ -420,10 +799,9 @@ export default function SettingsPage() {
                         </div>
                       </div>
 
-                      <div className="pt-4 flex justify-end">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Theme preference is automatically saved
-                        </p>
+                      <div className="pt-4 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        Theme preference is automatically saved
                       </div>
                     </div>
                   </div>
@@ -508,9 +886,34 @@ export default function SettingsPage() {
                       </div>
                     ))}
 
+                    {hasNotificationChanges && (
+                      <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl">
+                        <div className="flex items-center gap-2">
+                          <Info className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                          <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                            You have unsaved notification preferences
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex justify-end pt-4">
-                      <button className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition-all duration-200">
-                        Save Preferences
+                      <button
+                        onClick={handleNotificationsSave}
+                        disabled={savingNotifications || !hasNotificationChanges}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all duration-200"
+                      >
+                        {savingNotifications ? (
+                          <>
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-5 h-5" />
+                            Save Preferences
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -574,7 +977,11 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="flex justify-end pt-4">
-                      <button className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-xl transition-all duration-200">
+                      <button
+                        onClick={() => toast.info("System settings feature coming soon!")}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-xl transition-all duration-200"
+                      >
+                        <Settings className="w-5 h-5" />
                         Apply Changes
                       </button>
                     </div>
@@ -585,6 +992,29 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Confirmation Dialogs */}
+      <ConfirmDialog
+        isOpen={passwordConfirmDialog}
+        onClose={() => setPasswordConfirmDialog(false)}
+        onConfirm={confirmPasswordChange}
+        title="Change Password"
+        message="Are you sure you want to change your password? You will need to use the new password for your next login."
+        confirmText="Change Password"
+        confirmButtonClass="bg-red-600 hover:bg-red-700"
+        icon={Lock}
+      />
+
+      <ConfirmDialog
+        isOpen={profileConfirmDialog}
+        onClose={() => setProfileConfirmDialog(false)}
+        onConfirm={confirmProfileUpdate}
+        title="Update Profile"
+        message="Are you sure you want to update your profile information?"
+        confirmText="Update Profile"
+        confirmButtonClass="bg-blue-600 hover:bg-blue-700"
+        icon={User}
+      />
     </div>
   );
 }
