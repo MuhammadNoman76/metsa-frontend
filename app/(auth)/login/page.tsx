@@ -47,9 +47,8 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setIsLoading(true);
-
+  
     try {
-      // The login function will accept either username or email
       await login(usernameOrEmail, password);
     } catch (err) {
       const axiosErr = err as {
@@ -57,40 +56,38 @@ export default function LoginPage() {
       };
       const msg = axiosErr?.response?.data?.detail;
       const status = axiosErr?.response?.status;
-
+  
+      console.error("Login error:", { status, msg, err }); // Debug log
+  
       if (status === 403) {
-        // Handle pending or rejected accounts
+        // Handle pending, rejected, or deactivated accounts
         if (msg?.includes("pending approval")) {
           setErrorType("pending");
-          setError(
-            "Your account is awaiting approval. You'll receive an email once approved."
-          );
+          setError("Your account is awaiting approval. You'll receive an email once approved.");
         } else if (msg?.includes("has been rejected")) {
           setErrorType("rejected");
           setError(msg);
+        } else if (msg?.includes("deactivated")) {
+          setErrorType("error");
+          setError("Your account has been deactivated. Please contact support.");
         } else {
           setErrorType("error");
           setError(msg || "Access denied");
         }
+      } else if (status === 401) {
+        setErrorType("error");
+        setError("Invalid username/email or password. Please check your credentials.");
       } else {
         setErrorType("error");
-        const friendly =
-          typeof msg === "string"
-            ? msg
-            : "Invalid credentials. Please check your username/email and password.";
+        const friendly = typeof msg === "string" ? msg : "Login failed. Please try again.";
         setError(friendly);
       }
-
-      // Show a toast using the computed message immediately
-      const toastMsg =
-        typeof axiosErr?.response?.data?.detail === "string"
-          ? axiosErr.response?.data?.detail
-          : "Invalid credentials. Please check your username/email and password.";
-      toast.error(toastMsg);
+  
+      toast.error(error || "Login failed");
     } finally {
       setIsLoading(false);
     }
-  };
+  };  
 
   const toggleTheme = () => {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");

@@ -510,16 +510,16 @@ export default function UsersManagementPage() {
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
-
+  
     // Validate password strength if changing password
-    if (editUser.changePassword) {
+    if (editUser.changePassword && editUser.password) {
       const passwordValidation = validatePasswordStrength(editUser.password);
       if (!passwordValidation.valid) {
         toast.error(passwordValidation.message);
         return;
       }
     }
-
+  
     // Check role change permissions
     if (
       editUser.role === UserRole.ADMIN &&
@@ -529,30 +529,30 @@ export default function UsersManagementPage() {
       toast.error("Only super admin can assign admin role");
       return;
     }
-
+  
     setSaving(true);
     try {
-      // Prepare update data
-      const updateData: {
-        username: string;
-        email: string;
-        role: UserRole;
-        is_active: boolean;
-        password?: string;
-      } = {
+      // First, update the user details (without password)
+      const updateData = {
         username: editUser.username,
         email: editUser.email,
         role: editUser.role,
         is_active: editUser.is_active,
       };
-
-      // Only include password if it's being changed
-      if (editUser.changePassword && editUser.password) {
-        updateData.password = editUser.password;
-      }
-
+  
       await api.put(`/users/${selectedUser.id}`, updateData);
-      toast.success("User updated successfully");
+  
+      // Then, if password needs to be changed, use the dedicated endpoint
+      if (editUser.changePassword && editUser.password) {
+        await api.put(`/users/${selectedUser.id}/reset-password`, {
+          new_password: editUser.password
+        });
+        
+        toast.success("User updated and password reset successfully");
+      } else {
+        toast.success("User updated successfully");
+      }
+  
       setIsEditDialogOpen(false);
       setSelectedUser(null);
       await fetchUsers();
@@ -563,7 +563,7 @@ export default function UsersManagementPage() {
     } finally {
       setSaving(false);
     }
-  };
+  };  
 
   const handleToggleActive = async (userId: string, currentStatus: boolean) => {
     try {
