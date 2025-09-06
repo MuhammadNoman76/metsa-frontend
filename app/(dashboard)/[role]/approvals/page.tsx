@@ -544,11 +544,11 @@ export default function ApprovalsPage() {
               </div>
             </div>
 
-            <div className="w-full lg:w-auto flex justify-end">
+            <div className="w-full lg:w-auto grid grid-cols-1 gap-2">
               <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 border border-gray-200 dark:border-gray-700">
                 <button
                   onClick={() => setViewMode("grid")}
-                  className={`h-9 sm:h-10 flex-1 rounded-lg flex items-center justify-center transition-all duration-200 px-3 ${
+                  className={`h-10 sm:h-11 flex-1 rounded-lg flex items-center justify-center transition-all duration-200 ${
                     viewMode === "grid"
                       ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400"
                       : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
@@ -560,7 +560,7 @@ export default function ApprovalsPage() {
                 </button>
                 <button
                   onClick={() => setViewMode("list")}
-                  className={`h-9 sm:h-10 flex-1 rounded-lg flex items-center justify-center transition-all duration-200 px-3 ${
+                  className={`h-10 sm:h-11 flex-1 rounded-lg flex items-center justify-center transition-all duration-200 ${
                     viewMode === "list"
                       ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400"
                       : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
